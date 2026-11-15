@@ -269,13 +269,4 @@ sub1(['        render()', '    }', '', '    private fun capsuleText('].join(NL),
 fs.writeFileSync(kt, s);
 console.log('patched ' + kt + ' (' + s.length + ' bytes)');
 
-// ---- 12. 版本名 ----
-if (gradle && fs.existsSync(gradle)) {
-  let g = fs.readFileSync(gradle, 'utf8');
-  if (g.includes('versionName = "0.3.11"')) {
-    fs.writeFileSync(gradle, g.split('versionName = "0.3.11"').join('versionName = "0.3.11-' + TAG + '"'));
-    console.log('versionName -> 0.3.11-' + TAG);
-  } else {
-    console.log('WARN: versionName 未命中，保持原样');
-  }
-}
+console.log("all done");
