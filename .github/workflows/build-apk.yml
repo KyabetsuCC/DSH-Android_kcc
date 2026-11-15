@@ -6,11 +6,11 @@ on:
       ball_size_dp:
         description: "悬浮球直径 dp（素材有透明留白）"
         required: true
-        default: "64"
+        default: "43"
       tag:
         description: "版本名后缀"
         required: true
-        default: "kcc3"
+        default: "kcc4"
       app_id:
         description: "包名（改成别的可实现共存；留空=官方包名）"
         required: false
@@ -19,9 +19,13 @@ on:
         description: "桌面显示名"
         required: false
         default: "DSH"
+      vc:
+        description: "versionCode（发布用，必须比已装的大）"
+        required: false
+        default: "30"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -62,10 +66,11 @@ jobs:
           base=https://dshtui.com/pets/whale-girl-emoji/assets/gifs
           get() { curl -L --retry 4 -f -o "app/src/main/res/drawable-nodpi/$2" "$base/$1"; }
           get 01-idle.gif         ball_idle.gif
-          get 08-building.gif     ball_working.gif
           get 11-notification.gif ball_attention.gif
           get 10-happy.gif        ball_happy.gif
           get 09-error.gif        ball_error.gif
+          get 04-thinking.gif     ball_thinking.gif
+          get 05-typing.gif       ball_typing.gif
           get 18-tickle.gif       ball_tickle.gif
           get 16-poke-left.gif    ball_poke_l.gif
           get 17-poke-right.gif   ball_poke_r.gif
@@ -93,19 +98,76 @@ jobs:
           node patch_id.js "${{ inputs.app_id }}" "${{ inputs.app_name }}"
           grep -n "applicationId" app/build.gradle.kts
 
-      - name: 改代码（尺寸 / 待机淡化 / 互动 GIF / 全局可见）
+      - name: 改代码（尺寸 / 思考敲代码动画 / 待机淡化 / 互动 GIF / 全局可见）
         env:
           BALL_DP: ${{ inputs.ball_size_dp }}
           TAG: ${{ inputs.tag }}
         run: |
           set -euo pipefail
-          node patch_ball2.js app/src/main/java/io/github/jackwener/dsh/service/FloatingBallService.kt app/build.gradle.kts
-          grep -nE "val size = |private fun interact|private fun startIdle|IDLE_ALPHA" app/src/main/java/io/github/jackwener/dsh/service/FloatingBallService.kt | head -8
+          node patch_ball3.js app/src/main/java/io/github/jackwener/dsh/service/FloatingBallService.kt app/build.gradle.kts
+          grep -nE "val size = |private fun ballWorking|private fun ballNeeds|private fun ballIdle|IDLE_ALPHA" app/src/main/java/io/github/jackwener/dsh/service/FloatingBallService.kt | head -10
+
+      - name: 检查更新指向自己的仓库 + 版本号
+        if: ${{ inputs.app_id != '' }}
+        run: |
+          set -euo pipefail
+          node patch_update.js app/src/main/java/io/github/jackwener/dsh/core/update/UpdateManifest.kt app/build.gradle.kts "${{ github.repository }}" "${{ inputs.vc }}"
+          grep -n "private const val REPO\|versionCode" app/src/main/java/io/github/jackwener/dsh/core/update/UpdateManifest.kt app/build.gradle.kts
+
+      - name: 固定签名 keystore
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          set -euo pipefail
+          if [ -n "$KS_B64" ]; then
+            printf '%s' "$KS_B64" | base64 -d > release.keystore
+            echo "keystore: from repo secret"
+          else
+            keytool -genkeypair -v -keystore release.keystore -alias dsh -keyalg RSA -keysize 2048 -validity 10950 -storepass dshkcc2026 -keypass dshkcc2026 -dname "CN=DSH, OU=kcc, O=kyabetsu, C=CN"
+            base64 -w0 release.keystore > signing-key.b64
+            echo "GENERATED_KEYSTORE=1" >> "$GITHUB_ENV"
+            echo "keystore: NEW generated (set repo secret ANDROID_KEYSTORE_B64 with signing-key.b64)"
+          fi
 
       - name: 编译
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon --stacktrace assembleRelease -Pdsh.nativeOut="$PWD/toolchains/out/jniLibs" -Pdsh.engineOut="$PWD/toolchains/out/engine" -Pdsh.thirdPartyOut="$PWD/toolchains/out/third-party" -Pdsh.fetchShizuku=false
+          ./gradlew --no-daemon --stacktrace assembleRelease -Pdsh.signing.storeFile="$PWD/release.keystore" -Pdsh.signing.storePassword=dshkcc2026 -Pdsh.signing.keyAlias=dsh -Pdsh.signing.keyPassword=dshkcc2026 -Pdsh.nativeOut="$PWD/toolchains/out/jniLibs" -Pdsh.engineOut="$PWD/toolchains/out/engine" -Pdsh.thirdPartyOut="$PWD/toolchains/out/third-party" -Pdsh.fetchShizuku=false
+
+      - name: 发布 Release + 更新清单
+        if: ${{ inputs.app_id != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          VER="0.3.11-${{ inputs.tag }}"
+          RTAG="v$VER"
+          NAME="DSH-Android-$VER.apk"
+          APK=$(ls app/build/outputs/apk/release/*.apk | head -1)
+          cp "$APK" "$NAME"
+          SIZE=$(stat -c%s "$NAME")
+          SHA=$(sha256sum "$NAME" | cut -d' ' -f1)
+          CERT=$("$ANDROID_HOME/build-tools/37.0.0/apksigner" verify --print-certs "$NAME" | grep -oP 'certificate SHA-256 digest: \K[0-9a-f]{64}' | head -1)
+          [ -n "$CERT" ] || { echo "no signer cert"; exit 1; }
+          cat > update.json <<EOF
+          {"format":1,"packageName":"${{ inputs.app_id }}","versionCode":${{ inputs.vc }},"versionName":"$VER","minSdk":29,"apk":{"name":"$NAME","size":$SIZE,"sha256":"$SHA","urls":["https://github.com/${{ github.repository }}/releases/download/$RTAG/$NAME"]},"signerSha256":"$CERT","notes":{"zh":"kcc 构建：悬浮球/动画/气泡优化。","en":"kcc build."},"publishedAt":"$(date -u +%Y-%m-%dT%H:%M:%SZ)"}
+          EOF
+          gh release create "$RTAG" "$NAME" update.json --title "$RTAG" --notes "kcc $VER" --latest
+          mkdir -p update && cp update.json update/latest.json
+          SHAJ=$(gh api "repos/${{ github.repository }}/contents/update/latest.json" --jq '.sha' 2>/dev/null || true)
+          if [ -n "$SHAJ" ]; then
+            gh api --method PUT "repos/${{ github.repository }}/contents/update/latest.json" -f message="update manifest $RTAG" -f content="$(base64 -w0 update/latest.json)" -f branch=main -f sha="$SHAJ" --silent
+          else
+            gh api --method PUT "repos/${{ github.repository }}/contents/update/latest.json" -f message="update manifest $RTAG" -f content="$(base64 -w0 update/latest.json)" -f branch=main --silent
+          fi
+          echo "released $RTAG  sha256=$SHA  signer=$CERT"
+
+      - uses: actions/upload-artifact@v4
+        if: env.GENERATED_KEYSTORE == '1'
+        with:
+          name: signing-key
+          path: signing-key.b64
+          if-no-files-found: error
 
       - uses: actions/upload-artifact@v4
         with:
