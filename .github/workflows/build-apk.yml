@@ -4,13 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       ball_size_dp:
-        description: "悬浮球直径 dp（素材有透明留白，96~120 才看得清）"
+        description: "悬浮球直径 dp（素材有透明留白）"
         required: true
-        default: "96"
+        default: "64"
       tag:
         description: "版本名后缀"
         required: true
-        default: "kcc"
+        default: "kcc3"
       app_id:
         description: "包名（改成别的可实现共存；留空=官方包名）"
         required: false
@@ -66,6 +66,14 @@ jobs:
           get 11-notification.gif ball_attention.gif
           get 10-happy.gif        ball_happy.gif
           get 09-error.gif        ball_error.gif
+          get 18-tickle.gif       ball_tickle.gif
+          get 16-poke-left.gif    ball_poke_l.gif
+          get 17-poke-right.gif   ball_poke_r.gif
+          get 21-smile-hearts.gif ball_hearts.gif
+          get 22-thumbs-up.gif    ball_thumbs.gif
+          get 02-idle-look.gif    ball_look.gif
+          get 03-idle-spout.gif   ball_spout.gif
+          get 15-waking.gif       ball_waking.gif
           ls -l app/src/main/res/drawable-nodpi/
 
       - name: 换 App 图标
@@ -85,14 +93,14 @@ jobs:
           node patch_id.js "${{ inputs.app_id }}" "${{ inputs.app_name }}"
           grep -n "applicationId" app/build.gradle.kts
 
-      - name: 改代码（尺寸 / GIF 播放 / 结束表情）
+      - name: 改代码（尺寸 / 待机淡化 / 互动 GIF / 全局可见）
         env:
           BALL_DP: ${{ inputs.ball_size_dp }}
           TAG: ${{ inputs.tag }}
         run: |
           set -euo pipefail
-          node patch_ball.js app/src/main/java/io/github/jackwener/dsh/service/FloatingBallService.kt app/build.gradle.kts
-          grep -nE "setBall|flashBall|val size = \(" app/src/main/java/io/github/jackwener/dsh/service/FloatingBallService.kt
+          node patch_ball2.js app/src/main/java/io/github/jackwener/dsh/service/FloatingBallService.kt app/build.gradle.kts
+          grep -nE "val size = |private fun interact|private fun startIdle|IDLE_ALPHA" app/src/main/java/io/github/jackwener/dsh/service/FloatingBallService.kt | head -8
 
       - name: 编译
         run: |
