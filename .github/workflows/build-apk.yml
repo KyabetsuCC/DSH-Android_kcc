@@ -116,16 +116,19 @@ jobs:
           node patch_ball3.js app/src/main/java/io/github/jackwener/dsh/service/FloatingBallService.kt app/build.gradle.kts
           grep -nE "val size = |private fun ballWorking|private fun ballNeeds|private fun ballIdle|IDLE_ALPHA" app/src/main/java/io/github/jackwener/dsh/service/FloatingBallService.kt | head -10
 
-      - name: 修上游缺陷（气泡贴近 / 表格截断 / 模型删除 / 状态行 / 技能弹窗滚动）
+      - name: 修上游缺陷（气泡贴近 / 表格截断 / 模型删除 / 状态行 / 技能弹窗滚动 / 滑动与待办）
         run: |
           set -euo pipefail
           node patch_fix.js
           node patch_fix2.js
+          node patch_fix3.js
           grep -n "val gap = dp" app/src/main/java/io/github/jackwener/dsh/service/FloatingBallService.kt
           grep -c "tableComponent" app/src/main/java/io/github/jackwener/dsh/core/designsystem/Content.kt
           grep -c "prov_model_remove" app/src/main/res/values/strings.xml
           grep -c "deep_diving_steps" app/src/main/java/io/github/jackwener/dsh/feature/conversation/Stream.kt
           grep -c "verticalScroll" app/src/main/java/io/github/jackwener/dsh/feature/extensions/SkillsTab.kt
+          grep -c "isScrollInProgress) follow = false" app/src/main/java/io/github/jackwener/dsh/feature/conversation/Stream.kt
+          grep -c "!writtenThisTurn -> TodoDockMode.Hidden" app/src/main/java/io/github/jackwener/dsh/core/session/Projection.kt
 
       - name: 检查更新指向自己的仓库 + 版本号
         if: ${{ inputs.app_id != '' }}
