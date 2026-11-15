@@ -6,11 +6,7 @@ on:
       ball_size_dp:
         description: "悬浮球直径 dp（素材有透明留白）"
         required: true
-        default: "43"
-      tag:
-        description: "版本名后缀"
-        required: true
-        default: "kcc4"
+        default: "40"
       app_id:
         description: "包名（改成别的可实现共存；留空=官方包名）"
         required: false
@@ -22,7 +18,7 @@ on:
       vc:
         description: "versionCode（发布用，必须比已装的大）"
         required: false
-        default: "30"
+        default: ""
 
 permissions:
   contents: write
@@ -33,6 +29,20 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
+
+      - name: 版本号自增（kcc-0.0.N）
+        run: |
+          set -euo pipefail
+          VC="${{ inputs.vc }}"
+          if [ -z "$VC" ]; then
+            curl -sfL "https://raw.githubusercontent.com/${{ github.repository }}/main/update/latest.json" -o lm.json || true
+            VC=$(node -e "try{console.log(JSON.parse(require('fs').readFileSync('lm.json','utf8')).versionCode+1)}catch(e){console.log(31)}")
+          fi
+          N=$((VC-30)); [ "$N" -ge 1 ] || N=1
+          echo "VC=$VC" >> "$GITHUB_ENV"
+          echo "NVER=kcc-0.0.$N" >> "$GITHUB_ENV"
+          echo "RTAG=vkcc-0.0.$N" >> "$GITHUB_ENV"
+          echo "versionCode=$VC versionName=kcc-0.0.$N"
 
       - name: JDK 21
         uses: actions/setup-java@v4
@@ -101,7 +111,6 @@ jobs:
       - name: 改代码（尺寸 / 思考敲代码动画 / 待机淡化 / 互动 GIF / 全局可见）
         env:
           BALL_DP: ${{ inputs.ball_size_dp }}
-          TAG: ${{ inputs.tag }}
         run: |
           set -euo pipefail
           node patch_ball3.js app/src/main/java/io/github/jackwener/dsh/service/FloatingBallService.kt app/build.gradle.kts
@@ -111,7 +120,7 @@ jobs:
         if: ${{ inputs.app_id != '' }}
         run: |
           set -euo pipefail
-          node patch_update.js app/src/main/java/io/github/jackwener/dsh/core/update/UpdateManifest.kt app/build.gradle.kts "${{ github.repository }}" "${{ inputs.vc }}"
+          node patch_update.js app/src/main/java/io/github/jackwener/dsh/core/update/UpdateManifest.kt app/build.gradle.kts "${{ github.repository }}" "$VC" "$NVER"
           grep -n "private const val REPO\|versionCode" app/src/main/java/io/github/jackwener/dsh/core/update/UpdateManifest.kt app/build.gradle.kts
 
       - name: 固定签名 keystore
@@ -140,8 +149,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          VER="0.3.11-${{ inputs.tag }}"
-          RTAG="v$VER"
+          VER="$NVER"
           NAME="DSH-Android-$VER.apk"
           APK=$(ls app/build/outputs/apk/release/*.apk | head -1)
           cp "$APK" "$NAME"
@@ -150,7 +158,7 @@ jobs:
           CERT=$("$ANDROID_HOME/build-tools/37.0.0/apksigner" verify --print-certs "$NAME" | grep -oP 'certificate SHA-256 digest: \K[0-9a-f]{64}' | head -1)
           [ -n "$CERT" ] || { echo "no signer cert"; exit 1; }
           cat > update.json <<EOF
-          {"format":1,"packageName":"${{ inputs.app_id }}","versionCode":${{ inputs.vc }},"versionName":"$VER","minSdk":29,"apk":{"name":"$NAME","size":$SIZE,"sha256":"$SHA","urls":["https://github.com/${{ github.repository }}/releases/download/$RTAG/$NAME"]},"signerSha256":"$CERT","notes":{"zh":"kcc 构建：悬浮球/动画/气泡优化。","en":"kcc build."},"publishedAt":"$(date -u +%Y-%m-%dT%H:%M:%SZ)"}
+          {"format":1,"packageName":"${{ inputs.app_id }}","versionCode":$VC,"versionName":"$VER","minSdk":29,"apk":{"name":"$NAME","size":$SIZE,"sha256":"$SHA","urls":["https://github.com/${{ github.repository }}/releases/download/$RTAG/$NAME"]},"signerSha256":"$CERT","notes":{"zh":"kcc 构建：悬浮球/动画/气泡优化。","en":"kcc build."},"publishedAt":"$(date -u +%Y-%m-%dT%H:%M:%SZ)"}
           EOF
           gh release create "$RTAG" "$NAME" update.json --title "$RTAG" --notes "kcc $VER" --latest
           mkdir -p update && cp update.json update/latest.json
