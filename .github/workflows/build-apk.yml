@@ -116,6 +116,14 @@ jobs:
           node patch_ball3.js app/src/main/java/io/github/jackwener/dsh/service/FloatingBallService.kt app/build.gradle.kts
           grep -nE "val size = |private fun ballWorking|private fun ballNeeds|private fun ballIdle|IDLE_ALPHA" app/src/main/java/io/github/jackwener/dsh/service/FloatingBallService.kt | head -10
 
+      - name: 修上游缺陷（气泡贴近 / 表格截断 / 模型删除）
+        run: |
+          set -euo pipefail
+          node patch_fix.js
+          grep -n "val gap = dp" app/src/main/java/io/github/jackwener/dsh/service/FloatingBallService.kt
+          grep -c "tableComponent" app/src/main/java/io/github/jackwener/dsh/core/designsystem/Content.kt
+          grep -c "prov_model_remove" app/src/main/res/values/strings.xml
+
       - name: 检查更新指向自己的仓库 + 版本号
         if: ${{ inputs.app_id != '' }}
         run: |
