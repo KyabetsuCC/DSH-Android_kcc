@@ -1,5 +1,7 @@
-// Sidebar <-> keyboard (issue #76-4 family): the IME must not ride along with the drawer,
-// and Back closes the keyboard first, the drawer only on the next press.
+// Sidebar <-> keyboard: opening the drawer always drops keyboard focus, so the IME never rides
+// along with the sidebar and Back closes the drawer instead of a lingering keyboard.
+// NOTE: LocalDensity.current / WindowInsets.ime must NOT be read inside BackHandler {...} — that
+// lambda is not @Composable (compile error), and the drawer already clears focus on open.
 const fs = require('fs')
 const rel = '/app/src/main/java/io/github/jackwener/dsh/feature/conversation/HomeScreen.kt'
 const root = (process.argv[2] || '.') + rel
@@ -10,18 +12,12 @@ function rep(from, to, tag) {
   if (!src.includes(from)) { console.log('MISS ' + tag); failed++; return }
   src = src.replace(from, to); console.log('OK   ' + tag); changed++
 }
-rep('import androidx.compose.foundation.layout.imePadding\n',
-    'import androidx.compose.foundation.layout.WindowInsets\nimport androidx.compose.foundation.layout.ime\nimport androidx.compose.foundation.layout.imePadding\n',
-    'import WindowInsets/ime')
 rep('import androidx.compose.runtime.setValue\n',
-    'import androidx.compose.runtime.setValue\nimport androidx.compose.ui.platform.LocalDensity\nimport androidx.compose.ui.platform.LocalFocusManager\n',
-    'import LocalDensity/LocalFocusManager')
+    'import androidx.compose.runtime.setValue\nimport androidx.compose.ui.platform.LocalFocusManager\n',
+    'import LocalFocusManager')
 rep('    val drawer = rememberDrawerState(DrawerValue.Closed)\n    val scope = rememberCoroutineScope()\n',
     '    val drawer = rememberDrawerState(DrawerValue.Closed)\n    val scope = rememberCoroutineScope()\n    val focus = LocalFocusManager.current\n    // The IME must not ride along with the sidebar: opening the drawer always drops keyboard focus.\n    LaunchedEffect(drawer.isOpen) { if (drawer.isOpen) focus.clearFocus() }\n',
     'focus + drawer effect')
-rep('    BackHandler(drawer.isOpen) { scope.launch { drawer.close() } }\n',
-    '    BackHandler(drawer.isOpen) {\n        if (WindowInsets.ime.getBottom(LocalDensity.current) > 0) focus.clearFocus()\n        else scope.launch { drawer.close() }\n    }\n',
-    'BackHandler ime-first')
 rep('onMenu = { scope.launch { drawer.open() } }', 'onMenu = { focus.clearFocus(); scope.launch { drawer.open() } }', 'onMenu clearFocus')
 fs.writeFileSync(root, src)
 console.log('changed=' + changed + ' failed=' + failed)
