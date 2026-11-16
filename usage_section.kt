@@ -17,6 +17,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,6 +36,7 @@ import io.github.jackwener.dsh.core.data.UsageEntity
 import io.github.jackwener.dsh.core.designsystem.Dsh
 import io.github.jackwener.dsh.core.designsystem.DshType
 import io.github.jackwener.dsh.core.designsystem.SettingsCard
+import io.github.jackwener.dsh.core.designsystem.Segmented
 import io.github.jackwener.dsh.core.designsystem.SettingsGroupTitle
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -72,37 +75,44 @@ fun UsagePage(vm: UsageViewModel = hiltViewModel()) {
         }
         return
     }
+    var tab by remember { mutableIntStateOf(0) }
+    Spacer(Modifier.height(8.dp))
+    Segmented(
+        listOf(stringResource(R.string.usage_tab_today), stringResource(R.string.usage_tab_overview)),
+        tab, { tab = it },
+    )
     val today = days.firstOrNull()
     val total = remember(days) {
         days.fold(longArrayOf(0, 0, 0)) { a, d -> longArrayOf(a[0] + d.inputTokens, a[1] + d.cachedTokens, a[2] + d.outputTokens) }
     }
-
-    SettingsGroupTitle(stringResource(R.string.usage_today))
-    SettingsCard {
-        Stats(today?.inputTokens ?: 0L, today?.cachedTokens ?: 0L, today?.outputTokens ?: 0L)
-        Text(
-            stringResource(R.string.usage_cache_hit) + " " + hitRate(today?.inputTokens ?: 0L, today?.cachedTokens ?: 0L),
-            style = DshType.xs13, color = c.labelSecondary,
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp),
-        )
+    Spacer(Modifier.height(2.dp))
+    if (tab == 0) {
+        SettingsGroupTitle(stringResource(R.string.usage_today))
+        SettingsCard {
+            Stats(today?.inputTokens ?: 0L, today?.cachedTokens ?: 0L, today?.outputTokens ?: 0L)
+            Text(
+                stringResource(R.string.usage_cache_hit) + " " + hitRate(today?.inputTokens ?: 0L, today?.cachedTokens ?: 0L),
+                style = DshType.xs13, color = c.labelSecondary,
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp),
+            )
+        }
+    
+        SettingsGroupTitle(stringResource(R.string.usage_30d))
+        SettingsCard { Bars(days) }
+    } else {
+        SettingsGroupTitle(stringResource(R.string.usage_total))
+        SettingsCard {
+            Stats(total[0], total[1], total[2])
+            Text(
+                stringResource(R.string.usage_cache_hit) + " " + hitRate(total[0], total[1]) + " · " +
+                    fmt(total[0] + total[2]) + " tok · " + stringResource(R.string.usage_days, days.size),
+                style = DshType.xs13, color = c.labelSecondary,
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp),
+            )
+        }
+        SettingsGroupTitle(stringResource(R.string.usage_heatmap))
+        SettingsCard { HeatMap(days) }
     }
-
-    SettingsGroupTitle(stringResource(R.string.usage_30d))
-    SettingsCard { Bars(days) }
-
-    SettingsGroupTitle(stringResource(R.string.usage_total))
-    SettingsCard {
-        Stats(total[0], total[1], total[2])
-        Text(
-            stringResource(R.string.usage_cache_hit) + " " + hitRate(total[0], total[1]) + " · " +
-                fmt(total[0] + total[2]) + " tok · " + stringResource(R.string.usage_days, days.size),
-            style = DshType.xs13, color = c.labelSecondary,
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp),
-        )
-    }
-
-    SettingsGroupTitle(stringResource(R.string.usage_heatmap))
-    SettingsCard { HeatMap(days) }
 }
 
 @Composable
