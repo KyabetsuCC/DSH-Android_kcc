@@ -69,8 +69,8 @@ fun UsagePage(vm: UsageViewModel = hiltViewModel()) {
 private fun TodayPane(days: List<io.github.jackwener.dsh.core.data.UsageEntity>) {
     val c = Dsh.colors
     val today = days.firstOrNull()
-    SettingsGroupTitle("今日")
-    SettingsCard {
+    GroupTitle("今日")
+    Panel {
         Row(Modifier.padding(16.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Kv("输入", fmt(today?.inputTokens ?: 0L))
             Kv("缓存读取", fmt(today?.cachedTokens ?: 0L))
@@ -82,8 +82,8 @@ private fun TodayPane(days: List<io.github.jackwener.dsh.core.data.UsageEntity>)
         )
     }
     Spacer(Modifier.height(18.dp))
-    SettingsGroupTitle("最近 30 天")
-    SettingsCard { Bars(days) }
+    GroupTitle("最近 30 天")
+    Panel { Bars(days) }
 }
 
 @Composable
@@ -92,8 +92,8 @@ private fun OverviewPane(days: List<io.github.jackwener.dsh.core.data.UsageEntit
     val total = remember(days) {
         days.fold(longArrayOf(0, 0, 0)) { a, d -> longArrayOf(a[0] + d.inputTokens, a[1] + d.cachedTokens, a[2] + d.outputTokens) }
     }
-    SettingsGroupTitle("累计")
-    SettingsCard {
+    GroupTitle("累计")
+    Panel {
         Row(Modifier.padding(16.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Kv("输入", fmt(total[0]))
             Kv("缓存读取", fmt(total[1]))
@@ -105,8 +105,8 @@ private fun OverviewPane(days: List<io.github.jackwener.dsh.core.data.UsageEntit
         )
     }
     Spacer(Modifier.height(18.dp))
-    SettingsGroupTitle("热力图")
-    SettingsCard { HeatMap(days) }
+    GroupTitle("热力图")
+    Panel { HeatMap(days) }
 }
 
 @Composable
@@ -166,4 +166,16 @@ private fun HeatMap(days: List<io.github.jackwener.dsh.core.data.UsageEntity>) {
             }
         }
     }
+}
+
+@Composable
+private fun GroupTitle(text: String) {
+    val c = Dsh.colors
+    Text(text, style = DshType.xs13m, color = c.labelTertiary, modifier = Modifier.padding(top = 4.dp, bottom = 8.dp))
+}
+
+@Composable
+private fun Panel(content: @Composable () -> Unit) {
+    val c = Dsh.colors
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(c.selector)) { content() }
 }
