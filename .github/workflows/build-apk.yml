@@ -64,10 +64,38 @@ jobs:
           mkdir -p toolchains/out/engine toolchains/out/jniLibs/arm64-v8a toolchains/out/third-party/assets/shizuku
           curl -L --retry 3 -o official.apk https://github.com/jackwener/DSH-Android/releases/download/v0.3.11/DSH-Android-v0.3.11-arm64.apk
           ls -l official.apk
-          unzip -o -j official.apk "assets/engine*" -d toolchains/out/engine
           unzip -o -j official.apk "lib/arm64-v8a/*.so" -d toolchains/out/jniLibs/arm64-v8a
           unzip -o -j official.apk "assets/shizuku/*" -d toolchains/out/third-party/assets/shizuku
           ls -l toolchains/out/engine toolchains/out/jniLibs/arm64-v8a
+
+      - name: 自建引擎树（实验：dsh 0.2.2-rc.3）
+        run: |
+          set -o pipefail
+          (
+            set -euo pipefail
+            mkdir -p engine
+            tar xzf engine-src.tgz -C engine
+            cd engine
+            npm install --omit=dev --ignore-scripts --no-audit --no-fund
+            rm -rf node_modules/.cache node_modules/**/node-gyp 2>/dev/null || true
+            mkdir -p ../toolchains/out/engine
+            rm -f ../toolchains/out/engine/engine.zip
+            zip -qr9 ../toolchains/out/engine/engine.zip . -x "*.map" -x "*/test/*" -x "*/tests/*"
+            cd ..
+            h=$(sha256sum toolchains/out/engine/engine.zip | cut -d" " -f1)
+            echo "$h  engine.zip" > toolchains/out/engine/engine.sha256
+            printf "%s" "0.2.2-rc.3-experimental" > toolchains/out/engine/engine-version.txt
+            ls -l toolchains/out/engine
+            du -sh toolchains/out/engine/engine.zip
+          ) 2>&1 | tee engine-build.log
+
+      - name: Upload engine build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: engine-build-log
+          path: engine-build.log
+          if-no-files-found: ignore
 
       - name: 下载鲸鱼娘 GIF
         run: |
