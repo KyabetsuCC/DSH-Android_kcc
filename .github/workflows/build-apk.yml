@@ -122,6 +122,7 @@ jobs:
           node patch_fix.js
           node patch_fix2.js
           node patch_fix3.js
+          node patch_fix4.js
           grep -n "val gap = dp" app/src/main/java/io/github/jackwener/dsh/service/FloatingBallService.kt
           grep -c "tableComponent" app/src/main/java/io/github/jackwener/dsh/core/designsystem/Content.kt
           grep -c "prov_model_remove" app/src/main/res/values/strings.xml
@@ -129,6 +130,7 @@ jobs:
           grep -c "verticalScroll" app/src/main/java/io/github/jackwener/dsh/feature/extensions/SkillsTab.kt
           grep -c "isScrollInProgress) follow = false" app/src/main/java/io/github/jackwener/dsh/feature/conversation/Stream.kt
           grep -c "!writtenThisTurn -> TodoDockMode.Hidden" app/src/main/java/io/github/jackwener/dsh/core/session/Projection.kt
+          grep -c "repeat(3) { i ->" app/src/main/java/io/github/jackwener/dsh/feature/conversation/Stream.kt
 
       - name: 检查更新指向自己的仓库 + 版本号
         if: ${{ inputs.app_id != '' }}
