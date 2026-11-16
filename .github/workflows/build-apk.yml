@@ -165,10 +165,18 @@ jobs:
           fi
 
       - name: 编译
+        continue-on-error: false
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon --stacktrace assembleRelease -Pdsh.signing.storeFile="$PWD/release.keystore" -Pdsh.signing.storePassword=dshkcc2026 -Pdsh.signing.keyAlias=dsh -Pdsh.signing.keyPassword=dshkcc2026 -Pdsh.nativeOut="$PWD/toolchains/out/jniLibs" -Pdsh.engineOut="$PWD/toolchains/out/engine" -Pdsh.thirdPartyOut="$PWD/toolchains/out/third-party" -Pdsh.fetchShizuku=false
+          set -o pipefail
+          ./gradlew --no-daemon --stacktrace assembleRelease -Pdsh.signing.storeFile="$PWD/release.keystore" -Pdsh.signing.storePassword=dshkcc2026 -Pdsh.signing.keyAlias=dsh -Pdsh.signing.keyPassword=dshkcc2026 -Pdsh.nativeOut="$PWD/toolchains/out/jniLibs" -Pdsh.engineOut="$PWD/toolchains/out/engine" -Pdsh.thirdPartyOut="$PWD/toolchains/out/third-party" -Pdsh.fetchShizuku=false 2>&1 | tee build-error.log
 
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: build-error
+          path: build-error.log
+          if-no-files-found: ignore
       - name: 发布 Release + 更新清单
         if: ${{ inputs.app_id != '' }}
         env:
