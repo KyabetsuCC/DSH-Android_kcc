@@ -64,6 +64,10 @@ jobs:
           mkdir -p toolchains/out/engine toolchains/out/jniLibs/arm64-v8a toolchains/out/third-party/assets/shizuku
           curl -L --retry 3 -o official.apk https://github.com/jackwener/DSH-Android/releases/download/v0.3.11/DSH-Android-v0.3.11-arm64.apk
           ls -l official.apk
+          mkdir -p toolchains/official-engine
+          unzip -o -j official.apk "assets/engine.zip" -d toolchains/official-engine
+          unzip -o -q toolchains/official-engine/engine.zip -d toolchains/official-engine/tree
+          ls -l toolchains/official-engine/tree/node_modules/node-addon-require-builtin/lib/index.js
           unzip -o -j official.apk "lib/arm64-v8a/*.so" -d toolchains/out/jniLibs/arm64-v8a
           unzip -o -j official.apk "assets/shizuku/*" -d toolchains/out/third-party/assets/shizuku
           ls -l toolchains/out/engine toolchains/out/jniLibs/arm64-v8a
@@ -77,6 +81,11 @@ jobs:
             tar xzf engine-src.tgz -C engine
             cd engine
             npm install --omit=dev --ignore-scripts --no-audit --no-fund
+            # DSH-Android js patch 02: the embedder preloads --expose-internals, so the patched
+            # require-builtin addon must replace the upstream one that needs a native binding.
+            cp ../toolchains/official-engine/tree/node_modules/node-addon-require-builtin/lib/index.js \
+               node_modules/node-addon-require-builtin/lib/index.js
+            grep -q exposeInternals node_modules/node-addon-require-builtin/lib/index.js
             rm -rf node_modules/.cache node_modules/**/node-gyp 2>/dev/null || true
             mkdir -p ../toolchains/out/engine
             rm -f ../toolchains/out/engine/engine.zip
