@@ -138,6 +138,7 @@ jobs:
           cp image_viewer.kt app/src/main/java/io/github/jackwener/dsh/feature/conversation/ImageViewer.kt
           node patch_fix17.js
           node patch_fix18.js
+          node patch_fix19.js
           grep -n "val gap = dp" app/src/main/java/io/github/jackwener/dsh/service/FloatingBallService.kt
           grep -c "tableComponent" app/src/main/java/io/github/jackwener/dsh/core/designsystem/Content.kt
           grep -c "prov_model_remove" app/src/main/res/values/strings.xml
@@ -146,6 +147,7 @@ jobs:
           grep -c "isScrollInProgress) follow = false" app/src/main/java/io/github/jackwener/dsh/feature/conversation/Stream.kt
           grep -c "!writtenThisTurn -> TodoDockMode.Hidden" app/src/main/java/io/github/jackwener/dsh/core/session/Projection.kt
           grep -c "widening schedule" app/src/main/java/io/github/jackwener/dsh/feature/conversation/Stream.kt
+          grep -c "lastPaneHeight" app/src/main/java/io/github/jackwener/dsh/feature/conversation/Stream.kt
 
       - name: 检查更新指向自己的仓库 + 版本号
         if: ${{ inputs.app_id != '' }}
