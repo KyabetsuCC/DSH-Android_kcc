@@ -17,9 +17,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.lerp
@@ -35,7 +33,8 @@ import io.github.jackwener.dsh.core.data.UsageDao
 import io.github.jackwener.dsh.core.data.UsageEntity
 import io.github.jackwener.dsh.core.designsystem.Dsh
 import io.github.jackwener.dsh.core.designsystem.DshType
-import io.github.jackwener.dsh.core.designsystem.Segmented
+import io.github.jackwener.dsh.core.designsystem.SettingsCard
+import io.github.jackwener.dsh.core.designsystem.SettingsGroupTitle
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.TextStyle
@@ -63,52 +62,47 @@ private fun hitRate(input: Long, cached: Long): String =
 fun UsagePage(vm: UsageViewModel = hiltViewModel()) {
     val c = Dsh.colors
     val days by vm.days.collectAsState()
-    var tab by remember { mutableIntStateOf(0) }
-    Spacer(Modifier.height(10.dp))
-    Segmented(listOf(stringResource(R.string.usage_tab_today), stringResource(R.string.usage_tab_overview)), tab, { tab = it })
-    Spacer(Modifier.height(14.dp))
     if (days.isEmpty()) {
-        Text(stringResource(R.string.usage_none), style = DshType.s14, color = c.labelTertiary, modifier = Modifier.padding(vertical = 24.dp))
+        SettingsGroupTitle(stringResource(R.string.usage_today))
+        SettingsCard {
+            Text(
+                stringResource(R.string.usage_none), style = DshType.s14, color = c.labelTertiary,
+                modifier = Modifier.padding(16.dp),
+            )
+        }
         return
     }
-    if (tab == 0) TodayPane(days) else OverviewPane(days)
-}
-
-@Composable
-private fun TodayPane(days: List<UsageEntity>) {
-    val c = Dsh.colors
     val today = days.firstOrNull()
-    GroupTitle(stringResource(R.string.usage_today))
-    Panel {
-        Stats(today?.inputTokens ?: 0L, today?.cachedTokens ?: 0L, today?.outputTokens ?: 0L)
-        Text(
-            stringResource(R.string.usage_cache_hit) + " " + hitRate(today?.inputTokens ?: 0L, today?.cachedTokens ?: 0L),
-            style = DshType.xs13, color = c.labelSecondary, modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp),
-        )
-    }
-    Spacer(Modifier.height(20.dp))
-    GroupTitle(stringResource(R.string.usage_30d))
-    Panel { Bars(days) }
-}
-
-@Composable
-private fun OverviewPane(days: List<UsageEntity>) {
-    val c = Dsh.colors
     val total = remember(days) {
         days.fold(longArrayOf(0, 0, 0)) { a, d -> longArrayOf(a[0] + d.inputTokens, a[1] + d.cachedTokens, a[2] + d.outputTokens) }
     }
-    GroupTitle(stringResource(R.string.usage_total))
-    Panel {
-        Stats(total[0], total[1], total[2])
+
+    SettingsGroupTitle(stringResource(R.string.usage_today))
+    SettingsCard {
+        Stats(today?.inputTokens ?: 0L, today?.cachedTokens ?: 0L, today?.outputTokens ?: 0L)
         Text(
-            stringResource(R.string.usage_cache_hit) + " " + hitRate(total[0], total[1]) + " · " + fmt(total[0] + total[2]) + " tok · " +
-                stringResource(R.string.usage_days, days.size),
-            style = DshType.xs13, color = c.labelSecondary, modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp),
+            stringResource(R.string.usage_cache_hit) + " " + hitRate(today?.inputTokens ?: 0L, today?.cachedTokens ?: 0L),
+            style = DshType.xs13, color = c.labelSecondary,
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp),
         )
     }
-    Spacer(Modifier.height(20.dp))
-    GroupTitle(stringResource(R.string.usage_heatmap))
-    Panel { HeatMap(days) }
+
+    SettingsGroupTitle(stringResource(R.string.usage_30d))
+    SettingsCard { Bars(days) }
+
+    SettingsGroupTitle(stringResource(R.string.usage_total))
+    SettingsCard {
+        Stats(total[0], total[1], total[2])
+        Text(
+            stringResource(R.string.usage_cache_hit) + " " + hitRate(total[0], total[1]) + " · " +
+                fmt(total[0] + total[2]) + " tok · " + stringResource(R.string.usage_days, days.size),
+            style = DshType.xs13, color = c.labelSecondary,
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp),
+        )
+    }
+
+    SettingsGroupTitle(stringResource(R.string.usage_heatmap))
+    SettingsCard { HeatMap(days) }
 }
 
 @Composable
@@ -163,13 +157,14 @@ private fun HeatMap(days: List<UsageEntity>) {
     val byDay = remember(days) { days.associate { it.day to (it.inputTokens + it.outputTokens) } }
     val max = remember(days) { days.maxOfOrNull { it.inputTokens + it.outputTokens }?.coerceAtLeast(1L) ?: 1L }
     val today = remember { LocalDate.now() }
+    val locale = remember { Locale.getDefault() }
     val weeks = 53
     val start = remember(today) { today.minusDays((today.dayOfWeek.value - 1).toLong()).minusWeeks((weeks - 1).toLong()) }
-    val locale = remember { Locale.getDefault() }
-    BoxWithConstraints(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 10.dp)) {
+    BoxWithConstraints(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 14.dp, bottom = 10.dp)) {
         val labelW = 26.dp
         val gap = 1.dp
         val cell = ((maxWidth - labelW - gap * (weeks - 1)) / weeks).coerceAtLeast(1.dp)
+        val round = RoundedCornerShape((cell.value * 0.32f).coerceIn(0.8f, 3f).dp)
         Column {
             Row(Modifier.padding(start = labelW)) {
                 repeat(weeks) { w ->
@@ -180,7 +175,8 @@ private fun HeatMap(days: List<UsageEntity>) {
                         if (fresh) {
                             Text(
                                 d.month.getDisplayName(TextStyle.SHORT, locale),
-                                style = DshType.xs13.copy(fontSize = 9.sp), color = c.labelTertiary, maxLines = 1, overflow = TextOverflow.Visible,
+                                style = DshType.xs13.copy(fontSize = 9.sp), color = c.labelTertiary,
+                                maxLines = 1, overflow = TextOverflow.Visible,
                             )
                         }
                     }
@@ -194,7 +190,8 @@ private fun HeatMap(days: List<UsageEntity>) {
                             if (i % 2 == 0) {
                                 Text(
                                     DayOfWeek.of(i + 1).getDisplayName(TextStyle.SHORT, locale),
-                                    style = DshType.xs13.copy(fontSize = 8.sp), color = c.labelTertiary, maxLines = 1, overflow = TextOverflow.Visible,
+                                    style = DshType.xs13.copy(fontSize = 8.sp), color = c.labelTertiary,
+                                    maxLines = 1, overflow = TextOverflow.Visible,
                                 )
                             }
                         }
@@ -208,18 +205,18 @@ private fun HeatMap(days: List<UsageEntity>) {
                                 val v = byDay[date.toString()] ?: 0L
                                 val t = (v.toFloat() / max).coerceIn(0f, 1f)
                                 val color = if (v <= 0L) c.borderL2 else lerp(c.borderL2, c.kindMessages, 0.3f + 0.7f * t)
-                                Box(Modifier.size(cell).clip(RoundedCornerShape(1.dp)).background(color))
+                                Box(Modifier.size(cell).clip(round).background(color))
                             }
                         }
                     }
                 }
             }
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(10.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 Text(stringResource(R.string.usage_less), style = DshType.xs13.copy(fontSize = 10.sp), color = c.labelTertiary)
                 Spacer(Modifier.width(6.dp))
                 listOf(0f, 0.25f, 0.5f, 0.75f, 1f).forEach { t ->
-                    Box(Modifier.size(9.dp).clip(RoundedCornerShape(1.dp)).background(lerp(c.borderL2, c.kindMessages, t)))
+                    Box(Modifier.size(9.dp).clip(RoundedCornerShape(2.dp)).background(lerp(c.borderL2, c.kindMessages, t)))
                     Spacer(Modifier.width(2.dp))
                 }
                 Spacer(Modifier.width(4.dp))
@@ -227,16 +224,4 @@ private fun HeatMap(days: List<UsageEntity>) {
             }
         }
     }
-}
-
-@Composable
-private fun GroupTitle(text: String) {
-    val c = Dsh.colors
-    Text(text, style = DshType.xs13m, color = c.labelTertiary, modifier = Modifier.padding(top = 4.dp, bottom = 8.dp))
-}
-
-@Composable
-private fun Panel(content: @Composable () -> Unit) {
-    val c = Dsh.colors
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(c.selector)) { content() }
 }
