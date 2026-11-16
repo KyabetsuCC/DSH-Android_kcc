@@ -134,6 +134,7 @@ jobs:
           mkdir -p app/src/main/java/io/github/jackwener/dsh/feature/settings && cp usage_section.kt app/src/main/java/io/github/jackwener/dsh/feature/settings/UsageSection.kt
           node patch_fix14.js
           node patch_fix15.js
+          node patch_fix16.js
           grep -n "val gap = dp" app/src/main/java/io/github/jackwener/dsh/service/FloatingBallService.kt
           grep -c "tableComponent" app/src/main/java/io/github/jackwener/dsh/core/designsystem/Content.kt
           grep -c "prov_model_remove" app/src/main/res/values/strings.xml
