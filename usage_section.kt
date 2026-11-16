@@ -30,7 +30,7 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -40,7 +40,6 @@ import io.github.jackwener.dsh.core.designsystem.Dsh
 import io.github.jackwener.dsh.core.designsystem.DshType
 import io.github.jackwener.dsh.core.designsystem.DshColors
 import io.github.jackwener.dsh.core.designsystem.Tone
-import io.github.jackwener.dsh.core.data.UsageDao
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import io.github.jackwener.dsh.core.designsystem.Tag
@@ -70,7 +69,7 @@ fun UsageSection(vm: UsageViewModel = hiltViewModel()) {
     val days by vm.days.collectAsStateWithLifecycle()
     var mode by remember { mutableIntStateOf(0) }
     val today = days.firstOrNull()
-    val total = remember(days) { all.fold(longArrayOf(0, 0, 0)) { a, d -> longArrayOf(a[0] + d.inputTokens, a[1] + d.cachedTokens, a[2] + d.outputTokens) } }
+    val total = remember(days) { days.fold(longArrayOf(0, 0, 0)) { a, d -> longArrayOf(a[0] + d.inputTokens, a[1] + d.cachedTokens, a[2] + d.outputTokens) } }
 
     Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
         Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
