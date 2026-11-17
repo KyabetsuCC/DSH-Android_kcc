@@ -27,7 +27,7 @@ edit('app/src/main/java/io/github/jackwener/dsh/feature/conversation/HomeScreen.
     'val composer = rememberComposerState(live.sessionId)\n    var termOpen by remember { mutableStateOf(false) }');
   if (!has(s, 'if (!empty) IconBtn(R.drawable.dsw_new_chat_outline', 'new chat anchor')) return null;
   s = s.replace('            if (!empty) IconBtn(R.drawable.dsw_new_chat_outline',
-    '            IconBtn(R.drawable.dsw_code_outline, { termOpen = true }, size = 40.dp, iconSize = 18.dp, tint = c.labelPrimary, contentDescription = "终端")\n            if (!empty) IconBtn(R.drawable.dsw_new_chat_outline');
+    '            IconBtn(R.drawable.ic_term, { termOpen = true }, size = 40.dp, iconSize = 18.dp, tint = c.labelPrimary, contentDescription = "终端")\n            if (!empty) IconBtn(R.drawable.dsw_new_chat_outline');
   if (!has(s, 'val agentDisplay by vm.agentDisplay.collectAsStateWithLifecycle()', 'agent anchor')) return null;
   s = s.replace('        val agentDisplay by vm.agentDisplay.collectAsStateWithLifecycle()',
     '        if (termOpen) io.github.jackwener.dsh.feature.settings.TerminalOverlay(onClose = { termOpen = false })\n        val agentDisplay by vm.agentDisplay.collectAsStateWithLifecycle()');
