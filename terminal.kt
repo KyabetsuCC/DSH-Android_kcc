@@ -158,6 +158,9 @@ fun TerminalOverlay(onClose: () -> Unit) {
     var tf by remember { mutableStateOf(TextFieldValue("")) }
     var busy by remember { mutableStateOf(false) }
     var selOpen by remember { mutableStateOf(false) }
+    var ctrlOn by remember { mutableStateOf(false) }
+    var shiftOn by remember { mutableStateOf(false) }
+    var altOn by remember { mutableStateOf(false) }
     val history = remember { mutableStateListOf<String>() }
     var hIdx by remember { mutableIntStateOf(-1) }
     val scroll = rememberScrollState()
@@ -185,6 +188,35 @@ fun TerminalOverlay(onClose: () -> Unit) {
         tf = TextFieldValue("")
         busy = true
         session.submit(cmd)
+    }
+
+    fun resetMods() { ctrlOn = false; shiftOn = false; altOn = false }
+
+    fun hardStop() {
+        session.kill()
+        session.start(ctx)
+        busy = false
+        tf = TextFieldValue("")
+        resetMods()
+        refresh()
+    }
+
+    /** 带修饰键的输入：Ctrl+C 停掉当前命令，Ctrl+字母 显示成 ^X，Shift 转大写。 */
+    fun typed(nv: TextFieldValue) {
+        val old = tf.text
+        val nt = nv.text
+        val inserted = if (nt.length == old.length + 1) {
+            val i = nv.selection.start - 1
+            if (i in nt.indices) nt[i] else null
+        } else null
+        if (inserted == null) { tf = nv; resetMods(); return }
+        when {
+            ctrlOn && inserted.lowercaseChar() == 'c' -> hardStop()
+            ctrlOn && inserted.isLetter() -> { insert("^" + inserted.uppercaseChar()); resetMods() }
+            shiftOn -> { insert(inserted.uppercaseChar().toString()); resetMods() }
+            altOn -> { insert(inserted.toString()); resetMods() }
+            else -> tf = nv
+        }
     }
 
     DisposableEffect(Unit) {
@@ -244,7 +276,7 @@ fun TerminalOverlay(onClose: () -> Unit) {
                     Text("\$ ", style = Mono.copy(color = TAccent))
                     BasicTextField(
                         value = tf,
-                        onValueChange = { tf = it },
+                        onValueChange = { typed(it) },
                         textStyle = Mono,
                         cursorBrush = SolidColor(TAccent),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
@@ -259,19 +291,13 @@ fun TerminalOverlay(onClose: () -> Unit) {
                 Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, bottom = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                TermKey("Esc", 1f) { tf = TextFieldValue("") }
+                TermKey("Esc", 1f) { tf = TextFieldValue(""); resetMods() }
                 TermKey("Tab", 1f) { insert("  ") }
-                TermKey("Del", 1f) {
-                    val t = tf.text
-                    val s = tf.selection.start
-                    if (s < t.length) {
-                        val next = t.substring(0, s) + t.substring(s + 1)
-                        tf = TextFieldValue(next, TextRange(s))
-                    }
-                }
+                TermKey("Ctrl", 1f, active = ctrlOn) { ctrlOn = !ctrlOn; shiftOn = false; altOn = false }
+                TermKey("-", 1f) { insert("-") }
                 TermKey("←", 1f) {
-                    val s = (tf.selection.start - 1).coerceAtLeast(0)
-                    tf = tf.copy(selection = TextRange(s))
+                    val p = (tf.selection.start - 1).coerceAtLeast(0)
+                    tf = tf.copy(selection = TextRange(p))
                 }
                 TermKey("↑", 1f) {
                     if (history.isNotEmpty()) {
@@ -285,23 +311,19 @@ fun TerminalOverlay(onClose: () -> Unit) {
                     }
                 }
                 TermKey("→", 1f) {
-                    val s = (tf.selection.start + 1).coerceAtMost(tf.text.length)
-                    tf = tf.copy(selection = TextRange(s))
+                    val p = (tf.selection.start + 1).coerceAtMost(tf.text.length)
+                    tf = tf.copy(selection = TextRange(p))
                 }
-                TermKey("Home", 1.3f) { tf = tf.copy(selection = TextRange(0)) }
-                TermKey("End", 1.3f) { tf = tf.copy(selection = TextRange(tf.text.length)) }
-                TermKey("PgU", 1.2f) { scope.launch { scroll.animateScrollTo((scroll.value - 420).coerceAtLeast(0)) } }
-                TermKey("PgD", 1.2f) { scope.launch { scroll.animateScrollTo((scroll.value + 420).coerceAtMost(scroll.maxValue)) } }
-                TermKey("^C", 1f) {
-                    session.kill()
-                    session.start(ctx)
-                    busy = false
-                    tf = TextFieldValue("")
-                    refresh()
-                }
-                TermKey("^L", 1f) {
-                    session.clear()
-                    refresh()
+                TermKey("/", 1f) { insert("/") }
+                TermKey("Shift", 1f, active = shiftOn) { shiftOn = !shiftOn; ctrlOn = false; altOn = false }
+                TermKey("Alt", 1f, active = altOn) { altOn = !altOn; ctrlOn = false; shiftOn = false }
+                TermKey("Del", 1f) {
+                    val t = tf.text
+                    val p = tf.selection.start
+                    if (p < t.length) {
+                        val next = t.substring(0, p) + t.substring(p + 1)
+                        tf = TextFieldValue(next, TextRange(p))
+                    }
                 }
             }
         }
@@ -338,11 +360,11 @@ fun TerminalOverlay(onClose: () -> Unit) {
 }
 
 @Composable
-private fun androidx.compose.foundation.layout.RowScope.TermKey(label: String, w: Float, onClick: () -> Unit) {
+private fun androidx.compose.foundation.layout.RowScope.TermKey(label: String, w: Float, active: Boolean = false, onClick: () -> Unit) {
     Box(
         Modifier
             .weight(w)
-            .background(TKey, RoundedCornerShape(7.dp))
+            .background(if (active) TAccent else TKey, RoundedCornerShape(7.dp))
             .clickable { onClick() }
             .padding(vertical = 8.dp),
         contentAlignment = Alignment.Center
