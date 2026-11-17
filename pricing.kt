@@ -33,6 +33,8 @@ object Pricing {
         "nemotron" to ModelPrice(0.0, 0.0, 0.0),
     )
 
+    private val FREE = ModelPrice(0.0, 0.0, 0.0)
+
     /** "USD" or "CNY": what the cost rows print. */
     var currency by mutableStateOf("USD")
     /** Yuan per dollar, used while [currency] is CNY. */
@@ -46,6 +48,8 @@ object Pricing {
     fun priceOf(id: String?): ModelPrice? {
         val m = id?.lowercase() ?: return null
         if (m.isEmpty()) return null
+        // "…-free" variants and the like cost nothing, whatever their base model's price is.
+        if (m.contains("-free") || m.contains("free-") || m.endsWith("free")) return FREE
         return table.firstOrNull { m.contains(it.first) }?.second
     }
 
