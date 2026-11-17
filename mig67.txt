@@ -1,0 +1,21 @@
+    /** v7: v6 stored only the uncached part of the input; the events also carry the cached and written parts. */
+    val M_6_7 = object : Migration(6, 7) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            runCatching {
+                db.execSQL("DELETE FROM `usage_model`")
+                db.execSQL(
+                    "INSERT OR REPLACE INTO `usage_model`(`day`, `model`, `inputTokens`, `outputTokens`, `cachedTokens`) " +
+                        "SELECT date(`time` / 1000, 'unixepoch', 'localtime'), " +
+                        "COALESCE(json_extract(`json`, '\$.message.source.model'), '?'), " +
+                        "SUM(CAST(json_extract(`json`, '\$.usage.inputTokens') AS INTEGER) + " +
+                        "COALESCE(CAST(json_extract(`json`, '\$.usage.cacheReadTokens') AS INTEGER), 0) + " +
+                        "COALESCE(CAST(json_extract(`json`, '\$.usage.cacheWriteTokens') AS INTEGER), 0)), " +
+                        "SUM(CAST(json_extract(`json`, '\$.usage.outputTokens') AS INTEGER)), " +
+                        "SUM(COALESCE(CAST(json_extract(`json`, '\$.usage.cacheReadTokens') AS INTEGER), 0)) " +
+                        "FROM `events` WHERE `type` = 'assistant/message' " +
+                        "AND json_extract(`json`, '\$.usage') IS NOT NULL GROUP BY 1, 2",
+                )
+            }
+        }
+    }
+
