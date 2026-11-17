@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import io.github.jackwener.dsh.R
 import io.github.jackwener.dsh.core.designsystem.IconBtn
 import java.io.File
 import kotlinx.coroutines.delay
