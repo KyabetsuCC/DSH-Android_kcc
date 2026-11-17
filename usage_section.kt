@@ -101,7 +101,7 @@ fun UsagePage(vm: UsageViewModel = hiltViewModel()) {
     var tab by remember { mutableIntStateOf(0) }
     Spacer(Modifier.height(8.dp))
     Segmented(
-        listOf(stringResource(R.string.usage_tab_today), stringResource(R.string.usage_tab_overview), stringResource(R.string.usage_models)),
+        listOf(stringResource(R.string.usage_tab_today), stringResource(R.string.usage_models), stringResource(R.string.usage_tab_overview)),
         tab, { tab = it },
     )
     val today = days.firstOrNull()
@@ -122,7 +122,7 @@ fun UsagePage(vm: UsageViewModel = hiltViewModel()) {
     
         SettingsGroupTitle(stringResource(R.string.usage_30d))
         SettingsCard { Bars(days) }
-    } else if (tab == 1) {
+    } else if (tab == 2) {
         SettingsGroupTitle(stringResource(R.string.usage_total))
         SettingsCard {
             Stats(total[0], total[1], total[2])
@@ -144,8 +144,26 @@ fun UsagePage(vm: UsageViewModel = hiltViewModel()) {
 
 
 @Composable
-private fun ModelsTab(rows: List<UsageModelEntity>) {
+private fun ModelsTab(all: List<UsageModelEntity>) {
     val c = Dsh.colors
+    var range by remember { mutableIntStateOf(1) }
+    val today = remember { java.time.LocalDate.now().toString() }
+    val month = today.substring(0, 7)
+    val rows = remember(all, range) {
+        when (range) {
+            0 -> all.filter { it.day == today }
+            1 -> all.filter { it.day.startsWith(month) }
+            else -> all
+        }
+    }
+    Segmented(
+        listOf(
+            stringResource(R.string.usage_range_day),
+            stringResource(R.string.usage_range_month),
+            stringResource(R.string.usage_range_all),
+        ),
+        range, { range = it }, compact = true,
+    )
     val agg = remember(rows) {
         rows.groupBy { modelKey(it.model) }.map { (name, list) ->
             var input = 0L
@@ -184,6 +202,10 @@ private fun ModelsTab(rows: List<UsageModelEntity>) {
         )
     }
     SettingsGroupTitle(stringResource(R.string.usage_models))
+    Text(
+        stringResource(R.string.usage_models_note, rows.map { it.day }.distinct().size, rows.minOfOrNull { it.day } ?: "-"),
+        Modifier.padding(start = 4.dp, end = 4.dp, bottom = 8.dp), style = DshType.xs13, color = c.labelTertiary,
+    )
     SettingsCard {
         Column(Modifier.padding(vertical = 6.dp)) {
             agg.forEach { m ->
