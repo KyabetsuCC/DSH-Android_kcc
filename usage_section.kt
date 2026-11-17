@@ -20,6 +20,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.lerp
@@ -244,12 +245,13 @@ private fun HeatMap(days: List<UsageEntity>) {
     }
 }
 
-/** 本月汇总 + 导出 CSV（按天一行，含命中率）。 */
+/** 本月汇总（含当月每日柱形图）+ 导出 CSV（按天一行，含命中率）。 */
 @Composable
 private fun MonthSummary(days: List<UsageEntity>) {
     val c = Dsh.colors
     val ctx = LocalContext.current
-    val month = remember(days) { days.filter { it.day.startsWith(LocalDate.now().toString().substring(0, 7)) } }
+    val today = remember { LocalDate.now() }
+    val month = remember(days) { days.filter { it.day.startsWith(today.toString().substring(0, 7)) } }
     val input = month.sumOf { it.inputTokens }
     val cached = month.sumOf { it.cachedTokens }
     val output = month.sumOf { it.outputTokens }
@@ -267,27 +269,58 @@ private fun MonthSummary(days: List<UsageEntity>) {
         }
     }
     Column(Modifier.fillMaxWidth().padding(16.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
             Text(fmt(input + output), style = DshType.s14m.copy(fontSize = 18.sp), color = c.labelPrimary)
-            Text(stringResource(R.string.usage_month_total) + " · " + month.size + " " + stringResource(R.string.usage_days),
-                style = DshType.xs13, color = c.labelSecondary, modifier = Modifier.padding(top = 4.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(stringResource(R.string.usage_month_meta, month.size), style = DshType.xs13, color = c.labelSecondary, modifier = Modifier.padding(bottom = 2.dp))
         }
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(6.dp))
         Text(
             stringResource(R.string.usage_month_detail, fmt(cached), fmt(output), hitRate(input, cached)),
             style = DshType.xs13, color = c.labelSecondary,
         )
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(14.dp))
+        MonthBars(days, today)
+        Spacer(Modifier.height(14.dp))
         Text(
             stringResource(R.string.usage_export_csv),
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(9.dp))
                 .background(c.selector)
-                .clickable { launcher.launch("dsh-usage-" + LocalDate.now() + ".csv") }
+                .clickable { launcher.launch("dsh-usage-" + today + ".csv") }
                 .padding(vertical = 10.dp),
             style = DshType.s14m, color = c.labelPrimary, textAlign = TextAlign.Center,
         )
+    }
+}
+
+/** 当月 1..N 日（N = 当月真实天数）的 token 柱形图。 */
+@Composable
+private fun MonthBars(days: List<UsageEntity>, today: LocalDate) {
+    val c = Dsh.colors
+    val len = today.lengthOfMonth()
+    val byDay = remember(days) { days.associateBy { it.day } }
+    val values = remember(days, len) {
+        (1..len).map { d ->
+            val e = byDay[today.withDayOfMonth(d).toString()]
+            (e?.inputTokens ?: 0L) + (e?.outputTokens ?: 0L)
+        }
+    }
+    val peak = (values.maxOrNull() ?: 0L).coerceAtLeast(1L)
+    Row(Modifier.fillMaxWidth().height(58.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(1.dp)) {
+        values.forEach { v ->
+            val h = if (v <= 0L) 2.dp else ((56f * (v.toFloat() / peak.toFloat())).coerceAtLeast(3f)).dp
+            Box(Modifier.weight(1f).height(h).clip(RoundedCornerShape(1.5.dp)).background(if (v <= 0L) c.borderL2 else c.business))
+        }
+    }
+    Spacer(Modifier.height(4.dp))
+    Row(Modifier.fillMaxWidth()) {
+        Text("1", style = DshType.tiny10, color = c.labelTertiary)
+        Spacer(Modifier.weight(1f))
+        Text(today.dayOfMonth.toString(), style = DshType.tiny10, color = c.labelSecondary)
+        Spacer(Modifier.weight(1f))
+        Text(len.toString(), style = DshType.tiny10, color = c.labelTertiary)
     }
 }
 
