@@ -19,6 +19,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.ui.res.stringResource
+import io.github.jackwener.dsh.R
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -65,9 +67,9 @@ fun BackupPage() {
     ) { uri: Uri? ->
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
-            busy = "正在打包…"
+            busy = ctx.getString(R.string.backup_busy_pack)
             msg = runCatching { withContext(Dispatchers.IO) { exportZip(ctx, uri) } }
-                .fold({ "已导出：$it" }, { "导出失败：${it.message ?: it}" })
+                .fold({ ctx.getString(R.string.backup_exported, it) }, { ctx.getString(R.string.backup_export_failed, it.message ?: it.toString()) })
             busy = ""
         }
     }
@@ -77,26 +79,26 @@ fun BackupPage() {
     ) { uri: Uri? ->
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
-            busy = "正在还原…"
+            busy = ctx.getString(R.string.backup_busy_restore)
             msg = runCatching { withContext(Dispatchers.IO) { importZip(ctx, uri) } }
-                .fold({ "已还原：$it\n请完全退出并重新打开 DSH 生效。" }, { "导入失败：${it.message ?: it}" })
+                .fold({ ctx.getString(R.string.backup_restored, it) }, { ctx.getString(R.string.backup_import_failed, it.message ?: it.toString()) })
             busy = ""
         }
     }
 
-    SettingsGroupTitle("备份")
+    SettingsGroupTitle(stringResource(R.string.backup_group))
     SettingsCard {
         Column(Modifier.padding(14.dp)) {
             Text(
-                "把会话、附件、插件包、设置与数据库打包成一个 zip；导入时自动先存一份当前的，出事能退回来。",
+                stringResource(R.string.backup_intro),
                 color = Dsh.colors.labelSecondary, style = DshType.xs13,
             )
             Spacer(Modifier.height(12.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                BackupButton("导出备份", Modifier.weight(1f), busy.isEmpty()) {
+                BackupButton(stringResource(R.string.backup_export), Modifier.weight(1f), busy.isEmpty()) {
                     exportLauncher.launch("dsh-backup-$stamp.zip")
                 }
-                BackupButton("从备份导入", Modifier.weight(1f), busy.isEmpty()) {
+                BackupButton(stringResource(R.string.backup_import), Modifier.weight(1f), busy.isEmpty()) {
                     importLauncher.launch(arrayOf("application/zip", "application/octet-stream", "*/*"))
                 }
             }
@@ -111,14 +113,14 @@ fun BackupPage() {
         }
     }
 
-    SettingsGroupTitle("说明")
+    SettingsGroupTitle(stringResource(R.string.backup_notes))
     SettingsCard {
         Column(Modifier.padding(14.dp)) {
             for (line in listOf(
-                "✅ 会话记录、附件图片、插件包、规则、设置项",
-                "✅ 数据库 dsh.db（含 -wal / -shm）",
-                "❌ API Key：由本机 Keystore 加密，换机必失效，需重新填",
-                "❌ 引擎与 node_modules：可重建，打进去只会让包变大",
+                stringResource(R.string.backup_note_ok),
+                stringResource(R.string.backup_note_db),
+                stringResource(R.string.backup_note_key),
+                stringResource(R.string.backup_note_engine),
             )) {
                 Text(line, color = Dsh.colors.labelSecondary, style = DshType.xs13)
                 Spacer(Modifier.height(6.dp))
@@ -171,10 +173,10 @@ private fun exportZip(ctx: Context, uri: Uri): String {
     }
     ctx.contentResolver.openOutputStream(uri)?.use { out ->
         FileInputStream(tmp).use { it.copyTo(out) }
-    } ?: throw IllegalStateException("无法写入所选位置")
+    } ?: throw IllegalStateException(ctx.getString(R.string.backup_err_write))
     val size = tmp.length()
     tmp.delete()
-    return "共 $files 个文件，${(size / 1024 / 1024)} MB"
+    return ctx.getString(R.string.backup_done_export, files, size / 1024 / 1024)
 }
 
 private fun importZip(ctx: Context, uri: Uri): String {
@@ -216,8 +218,8 @@ private fun importZip(ctx: Context, uri: Uri): String {
                 zis.closeEntry()
             }
         }
-    } ?: throw IllegalStateException("无法读取所选文件")
-    return "共 $restored 个文件（原数据已备份到 files/import-backup）"
+    } ?: throw IllegalStateException(ctx.getString(R.string.backup_err_read))
+    return ctx.getString(R.string.backup_done_import, restored)
 }
 
 /** 遍历 dsh-home，跳过体积大且可重建的目录。 */
