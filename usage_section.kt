@@ -28,12 +28,16 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.jackwener.dsh.core.session.Pricing
+import io.github.jackwener.dsh.core.session.Usage
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.jackwener.dsh.R
 import io.github.jackwener.dsh.core.data.UsageDao
 import io.github.jackwener.dsh.core.data.UsageEntity
+import io.github.jackwener.dsh.core.data.UsageModelDao
+import io.github.jackwener.dsh.core.data.UsageModelEntity
 import io.github.jackwener.dsh.core.designsystem.Dsh
 import io.github.jackwener.dsh.core.designsystem.DshType
 import io.github.jackwener.dsh.core.designsystem.SettingsCard
@@ -54,8 +58,10 @@ import android.net.Uri
 import kotlinx.coroutines.flow.stateIn
 
 @HiltViewModel
-class UsageViewModel @Inject constructor(dao: UsageDao) : androidx.lifecycle.ViewModel() {
+class UsageViewModel @Inject constructor(dao: UsageDao, modelDao: UsageModelDao) : androidx.lifecycle.ViewModel() {
     val days = dao.observe().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    /** Rows per day and model: each day is priced with the models that spent its tokens. */
+    val modelDays = modelDao.observe().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 }
 
 private fun fmt(v: Long): String = when {
@@ -72,6 +78,15 @@ private fun hitRate(input: Long, cached: Long): String =
 fun UsagePage(vm: UsageViewModel = hiltViewModel()) {
     val c = Dsh.colors
     val days by vm.days.collectAsState()
+    val modelDays by vm.modelDays.collectAsState()
+    androidx.compose.runtime.LaunchedEffect(modelDays) {
+        Pricing.dayCosts = modelDays.groupBy { it.day }.mapValues { (_, rows) ->
+            rows.sumOf { row ->
+                val cached = row.cachedTokens.coerceAtMost(row.inputTokens)
+                Pricing.cost(Usage(uncached = (row.inputTokens - cached).coerceAtLeast(0), output = row.outputTokens, cacheRead = cached), row.model) ?: 0.0
+            }
+        }
+    }
     if (days.isEmpty()) {
         SettingsGroupTitle(stringResource(R.string.usage_today))
         SettingsCard {
@@ -155,7 +170,7 @@ private fun Bars(days: List<UsageEntity>) {
                 Column(Modifier.weight(1f)) {
                     Row {
                         Text(fmt(v) + " tok", Modifier.weight(1f), style = DshType.mono12, color = c.labelPrimary)
-                        Text(stringResource(R.string.usage_cache_hit_short, hitRate(u.inputTokens, u.cachedTokens)), style = DshType.mono12, color = c.labelTertiary)
+                        Text(stringResource(R.string.usage_cache_hit_short, hitRate(u.inputTokens, u.cachedTokens)) + costText(u), style = DshType.mono12, color = c.labelTertiary)
                     }
                     Spacer(Modifier.height(4.dp))
                     Box(Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).background(c.borderL2)) {
@@ -259,10 +274,10 @@ private fun MonthSummary(days: List<UsageEntity>) {
         if (uri == null) return@rememberLauncherForActivityResult
         runCatching {
             ctx.contentResolver.openOutputStream(uri)?.use { out ->
-                val sb = StringBuilder("day,input_tokens,cached_tokens,output_tokens,hit_rate\n")
+                val sb = StringBuilder("day,input_tokens,cached_tokens,output_tokens,hit_rate,cost_usd\n")
                 for (d in days.sortedBy { it.day }) {
                     sb.append(d.day).append(SEP).append(d.inputTokens).append(SEP).append(d.cachedTokens)
-                        .append(SEP).append(d.outputTokens).append(SEP).append(hitRate(d.inputTokens, d.cachedTokens)).append(NL)
+                        .append(SEP).append(d.outputTokens).append(SEP).append(hitRate(d.inputTokens, d.cachedTokens)).append(SEP).append(costNum(d)).append(NL)
                 }
                 out.write(sb.toString().toByteArray())
             }
@@ -279,6 +294,13 @@ private fun MonthSummary(days: List<UsageEntity>) {
             stringResource(R.string.usage_month_detail, fmt(cached), fmt(output), hitRate(input, cached)),
             style = DshType.xs13, color = c.labelSecondary,
         )
+        if (month.isNotEmpty()) {
+            Spacer(Modifier.height(4.dp))
+            Text(
+                stringResource(R.string.usage_month_cost, monthCost(month)),
+                style = DshType.xs13, color = c.labelSecondary,
+            )
+        }
         Spacer(Modifier.height(14.dp))
         MonthBars(days, today)
         Spacer(Modifier.height(14.dp))
@@ -326,3 +348,21 @@ private fun MonthBars(days: List<UsageEntity>, today: LocalDate) {
 
 private const val SEP = ','
 private const val NL = '\n'
+
+/** A usage row as the pricing calculator wants it (cached tokens are already inside input). */
+private fun usageOf(u: UsageEntity): Usage {
+    val cached = u.cachedTokens.coerceAtMost(u.inputTokens)
+    return Usage(uncached = (u.inputTokens - cached).coerceAtLeast(0), output = u.outputTokens, cacheRead = cached)
+}
+
+private fun costText(u: UsageEntity): String = (Pricing.dayCosts[u.day] ?: Pricing.cost(usageOf(u)))?.let { " · " + Pricing.format(it) }.orEmpty()
+
+private fun costNum(u: UsageEntity): String =
+    (Pricing.dayCosts[u.day] ?: Pricing.cost(usageOf(u)))?.let { String.format(java.util.Locale.US, "%.6f", it) }.orEmpty()
+
+private fun monthCost(days: List<UsageEntity>): String {
+    if (days.isNotEmpty() && days.all { Pricing.dayCosts.containsKey(it.day) }) return Pricing.format(days.sumOf { Pricing.dayCosts[it.day] ?: 0.0 })
+    var acc = Usage()
+    for (d in days) acc += usageOf(d)
+    return Pricing.cost(acc)?.let { Pricing.format(it) } ?: "-"
+}
