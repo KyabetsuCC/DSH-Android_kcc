@@ -142,6 +142,7 @@ jobs:
           node patch_fix22.js
           cp backup_page.kt app/src/main/java/io/github/jackwener/dsh/feature/settings/BackupPage.kt
           node patch_fix23.js
+          node patch_fix24.js
           node patch_fix18.js
           node patch_fix19.js
           node patch_fix20.js
