@@ -151,8 +151,9 @@ jobs:
           cp pricing.kt app/src/main/java/io/github/jackwener/dsh/core/session/Pricing.kt
           node patch_fix29.js
           node patch_fix30.js
-          node patch_fix31.js
-          grep -c "stop_others_title" app/src/main/java/io/github/jackwener/dsh/feature/conversation/HomeScreen.kt
+          node patch_fix32.js
+          node patch_fix33.js
+          grep -c "stop_others_body" app/src/main/java/io/github/jackwener/dsh/feature/conversation/HomeScreen.kt
           grep -c "set_cost_currency" app/src/main/java/io/github/jackwener/dsh/feature/settings/SettingsScreen.kt
           grep -c "Pricing.format(it)" app/src/main/java/io/github/jackwener/dsh/feature/conversation/Stream.kt
           grep -c "var tv by mutableStateOf(TextFieldValue" app/src/main/java/io/github/jackwener/dsh/feature/conversation/Composer.kt
@@ -199,7 +200,7 @@ jobs:
           ./gradlew --no-daemon --stacktrace assembleRelease -Pdsh.signing.storeFile="$PWD/release.keystore" -Pdsh.signing.storePassword=dshkcc2026 -Pdsh.signing.keyAlias=dsh -Pdsh.signing.keyPassword=dshkcc2026 -Pdsh.nativeOut="$PWD/toolchains/out/jniLibs" -Pdsh.engineOut="$PWD/toolchains/out/engine" -Pdsh.thirdPartyOut="$PWD/toolchains/out/third-party" -Pdsh.fetchShizuku=false 2>&1 | tee build-error.log
 
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: failure()
         with:
           name: build-error
           path: build-error.log
