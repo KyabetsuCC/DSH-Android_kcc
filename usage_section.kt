@@ -247,6 +247,7 @@ private fun HeatMap(days: List<UsageEntity>) {
 /** 本月汇总 + 导出 CSV（按天一行，含命中率）。 */
 @Composable
 private fun MonthSummary(days: List<UsageEntity>) {
+    val c = Dsh.colors
     val ctx = LocalContext.current
     val month = remember(days) { days.filter { it.day.startsWith(LocalDate.now().toString().substring(0, 7)) } }
     val input = month.sumOf { it.inputTokens }
@@ -258,19 +259,18 @@ private fun MonthSummary(days: List<UsageEntity>) {
             ctx.contentResolver.openOutputStream(uri)?.use { out ->
                 val sb = StringBuilder("day,input_tokens,cached_tokens,output_tokens,hit_rate\n")
                 for (d in days.sortedBy { it.day }) {
-                    sb.append(d.day).append(,).append(d.inputTokens).append(,).append(d.cachedTokens)
-                        .append(,).append(d.outputTokens).append(,).append(hitRate(d.inputTokens, d.cachedTokens)).append(
-)
+                    sb.append(d.day).append(SEP).append(d.inputTokens).append(SEP).append(d.cachedTokens)
+                        .append(SEP).append(d.outputTokens).append(SEP).append(hitRate(d.inputTokens, d.cachedTokens)).append(NL)
                 }
                 out.write(sb.toString().toByteArray())
             }
         }
     }
     Column(Modifier.fillMaxWidth().padding(16.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(fmt(input), style = DshType.s14m.copy(fontSize = 18.sp), color = c.labelPrimary)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(fmt(input + output), style = DshType.s14m.copy(fontSize = 18.sp), color = c.labelPrimary)
             Text(stringResource(R.string.usage_month_total) + " · " + month.size + " " + stringResource(R.string.usage_days),
-                style = DshType.xs13, color = c.labelSecondary)
+                style = DshType.xs13, color = c.labelSecondary, modifier = Modifier.padding(top = 4.dp))
         }
         Spacer(Modifier.height(8.dp))
         Text(
@@ -290,3 +290,6 @@ private fun MonthSummary(days: List<UsageEntity>) {
         )
     }
 }
+
+private const val SEP = ','
+private const val NL = '\n'
