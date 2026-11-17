@@ -290,8 +290,8 @@ fun TerminalOverlay(onClose: () -> Unit) {
                 }
                 TermKey("Home", 1.3f) { tf = tf.copy(selection = TextRange(0)) }
                 TermKey("End", 1.3f) { tf = tf.copy(selection = TextRange(tf.text.length)) }
-                TermKey("PgU", 1.2f) { scope.launch { scroll.scrollBy(-420f) } }
-                TermKey("PgD", 1.2f) { scope.launch { scroll.scrollBy(420f) } }
+                TermKey("PgU", 1.2f) { scope.launch { scroll.animateScrollTo((scroll.value - 420).coerceAtLeast(0)) } }
+                TermKey("PgD", 1.2f) { scope.launch { scroll.animateScrollTo((scroll.value + 420).coerceAtMost(scroll.maxValue)) } }
                 TermKey("^C", 1f) {
                     session.kill()
                     session.start(ctx)
