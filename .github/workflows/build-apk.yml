@@ -153,6 +153,9 @@ jobs:
           node patch_fix30.js
           node patch_fix32.js
           node patch_fix33.js
+          node patch_fix34.js
+          node patch_fix35.js
+          grep -c "cost_usd" app/src/main/java/io/github/jackwener/dsh/feature/settings/UsageSection.kt
           grep -c "stop_others_body" app/src/main/java/io/github/jackwener/dsh/feature/conversation/HomeScreen.kt
           grep -c "set_cost_currency" app/src/main/java/io/github/jackwener/dsh/feature/settings/SettingsScreen.kt
           grep -c "Pricing.format(it)" app/src/main/java/io/github/jackwener/dsh/feature/conversation/Stream.kt
