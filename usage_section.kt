@@ -343,13 +343,14 @@ private fun HeatMap(days: List<UsageEntity>) {
         val cell = ((maxWidth - labelW - gap * (weeks - 1)) / weeks).coerceAtLeast(1.dp)
         val round = RoundedCornerShape((cell.value * 0.32f).coerceIn(0.8f, 3f).dp)
         Column {
+            var marks = 0
             Row(Modifier.padding(start = labelW)) {
                 repeat(weeks) { w ->
                     val d = start.plusDays((w * 7).toLong())
                     val prev = start.plusDays(((w - 1) * 7).toLong())
                     val fresh = w == 0 || d.monthValue != prev.monthValue
                     Box(Modifier.width(cell + gap)) {
-                        if (fresh) {
+                        if (fresh && marks++ % 2 == 0) {
                             Text(
                                 d.month.getDisplayName(TextStyle.SHORT, locale),
                                 style = DshType.xs13.copy(fontSize = 9.sp), color = c.labelTertiary,
@@ -389,7 +390,12 @@ private fun HeatMap(days: List<UsageEntity>) {
                 }
             }
             Spacer(Modifier.height(10.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    stringResource(R.string.usage_heatmap_note, weeks),
+                    Modifier.weight(1f), style = DshType.xs13.copy(fontSize = 10.sp), color = c.labelTertiary,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
                 Text(stringResource(R.string.usage_less), style = DshType.xs13.copy(fontSize = 10.sp), color = c.labelTertiary)
                 Spacer(Modifier.width(6.dp))
                 listOf(0f, 0.25f, 0.5f, 0.75f, 1f).forEach { t ->
@@ -490,7 +496,7 @@ private fun MonthBars(days: List<UsageEntity>, today: LocalDate) {
         nums.forEachIndexed { i, v ->
             val on = sel == i + 1
             Box(
-                Modifier.weight(1f).fillMaxHeight().clickable { sel = i + 1 },
+                Modifier.weight(1f).fillMaxHeight().clickable(enabled = v > 0.0) { sel = i + 1 },
                 contentAlignment = Alignment.BottomCenter,
             ) {
                 val h = if (v <= 0.0) 2.dp else ((56f * (v / peak).toFloat()).coerceAtLeast(3f)).dp
