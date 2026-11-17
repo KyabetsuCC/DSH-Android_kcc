@@ -68,7 +68,8 @@ fun SessionSearchOverlay(turns: List<Turn>, onClose: () -> Unit, onPick: (Int) -
             val reply = t.blocks.filterIsInstance<Block.Text>().joinToString("\n") { it.text }
             val hay = user + "\n" + reply
             if (!hay.contains(needle, ignoreCase = true)) return@mapIndexedNotNull null
-            if (user.contains(needle, ignoreCase = true)) Hit(i, t.number, "you", user) else Hit(i, t.number, "ai", reply)
+            val num = t.number ?: (i + 1)
+            if (user.contains(needle, ignoreCase = true)) Hit(i, num, "you", user) else Hit(i, num, "ai", reply)
         }
     }
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
