@@ -23,6 +23,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import io.github.jackwener.dsh.R
+import io.github.jackwener.dsh.core.designsystem.IconBtn
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -41,10 +43,7 @@ private val TAccent = Color(0xFF4C8DFF)
 private val TChip = Color(0xFF1B1F26)
 private const val MARK = "__END__"
 
-/**
- * Stage-1 terminal: one long-lived `sh` on pipes (no pty). Commands run one after another, output
- * streams in, ↑/↓ recall history. Full-screen TUI programs are not supported.
- */
+/** One long-lived `sh` on pipes (no pty). Commands run in order, output streams in, ↑/↓ recall history. */
 @Composable
 fun TerminalOverlay(onClose: () -> Unit) {
     val ctx = LocalContext.current
@@ -63,10 +62,7 @@ fun TerminalOverlay(onClose: () -> Unit) {
     fun handle(chunk: String) {
         var text = out + chunk
         val re = Regex("(?m)^" + MARK + "(\\d+)\\s*$")
-        if (re.containsMatchIn(text)) {
-            text = text.replace(re, "")
-            busy = false
-        }
+        if (re.containsMatchIn(text)) { text = text.replace(re, ""); busy = false }
         if (text.length > 200000) text = text.substring(text.length - 200000)
         out = text
     }
@@ -133,42 +129,33 @@ fun TerminalOverlay(onClose: () -> Unit) {
 
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Column(Modifier.fillMaxSize().background(TBg).statusBarsPadding().imePadding()) {
-            // top bar: close | tab | clipboard + new
-            Row(Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).clickable { onClose() }, contentAlignment = Alignment.Center) {
-                    Text("✕", color = TFg, fontSize = 16.sp)
-                }
-                Spacer(Modifier.width(4.dp))
+            Row(Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconBtn(R.drawable.ic_close, onClose, size = 40.dp, iconSize = 16.dp, tint = TFg, contentDescription = "关闭")
+                Spacer(Modifier.width(2.dp))
                 Box(Modifier.clip(RoundedCornerShape(10.dp)).background(TChip).padding(horizontal = 12.dp, vertical = 6.dp)) {
                     Text("bash 1", color = TFg, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
                 }
                 Spacer(Modifier.weight(1f))
-                Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp))
-                    .clickable { copyText(ctx, out) }, contentAlignment = Alignment.Center) {
-                    Text("⧉", color = TFg, fontSize = 17.sp)
-                }
-                Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).clickable {
+                IconBtn(R.drawable.ic_copy, { copyText(ctx, out) }, size = 40.dp, iconSize = 17.dp, tint = TFg, contentDescription = "复制")
+                IconBtn(R.drawable.ic_plus, {
                     holder.proc?.destroy()
                     holder.proc = null
                     out = ""
                     busy = false
-                }, contentAlignment = Alignment.Center) {
-                    Text("＋", color = TFg, fontSize = 18.sp)
-                }
+                }, size = 40.dp, iconSize = 17.dp, tint = TFg, contentDescription = "新会话")
             }
-            // terminal body
             Box(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 6.dp)
                 .clip(RoundedCornerShape(14.dp)).background(TPanel)) {
-                Column(Modifier.fillMaxSize().padding(12.dp)) {
+                Column(Modifier.fillMaxSize().padding(12.dp).verticalScroll(scroll)) {
                     Text(
-                        text = if (out.isEmpty()) "sh · " + home.absolutePath else out,
-                        color = if (out.isEmpty()) TDim else TFg,
+                        text = if (out.isEmpty()) "sh · " + home.absolutePath + "\n" else out,
+                        color = TDim,
                         fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace,
                         lineHeight = 17.sp,
-                        modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(scroll)
+                        modifier = Modifier.fillMaxWidth()
                     )
-                    Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(if (busy) "… " else "$ ", color = if (busy) TDim else TAccent, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
                         BasicTextField(
                             value = cmd,
@@ -184,7 +171,6 @@ fun TerminalOverlay(onClose: () -> Unit) {
                     }
                 }
             }
-            // key row
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp).padding(bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 key("Esc", true) { cmd = "" }
