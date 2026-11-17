@@ -37,6 +37,9 @@ object Pricing {
     var currency by mutableStateOf("USD")
     /** Yuan per dollar, used while [currency] is CNY. */
     var cnyRate by mutableStateOf(6.67)
+    /** USD per day (YYYY-MM-DD), summed over the models that spent it; filled from usage_model. */
+    var dayCosts: Map<String, Double> by mutableStateOf(emptyMap())
+
     /** The model the open conversation runs; the cost rows price their tokens with it. */
     var model by mutableStateOf<String?>(null)
 
