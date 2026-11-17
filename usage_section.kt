@@ -18,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -100,7 +101,7 @@ fun UsagePage(vm: UsageViewModel = hiltViewModel()) {
     var tab by remember { mutableIntStateOf(0) }
     Spacer(Modifier.height(8.dp))
     Segmented(
-        listOf(stringResource(R.string.usage_tab_today), stringResource(R.string.usage_tab_overview)),
+        listOf(stringResource(R.string.usage_tab_today), stringResource(R.string.usage_tab_overview), stringResource(R.string.usage_models)),
         tab, { tab = it },
     )
     val today = days.firstOrNull()
@@ -121,7 +122,7 @@ fun UsagePage(vm: UsageViewModel = hiltViewModel()) {
     
         SettingsGroupTitle(stringResource(R.string.usage_30d))
         SettingsCard { Bars(days) }
-    } else {
+    } else if (tab == 1) {
         SettingsGroupTitle(stringResource(R.string.usage_total))
         SettingsCard {
             Stats(total[0], total[1], total[2])
@@ -136,8 +137,93 @@ fun UsagePage(vm: UsageViewModel = hiltViewModel()) {
         SettingsCard { HeatMap(days) }
         SettingsGroupTitle(stringResource(R.string.usage_month))
         SettingsCard { MonthSummary(days) }
+    } else {
+        ModelsTab(modelDays)
     }
 }
+
+
+@Composable
+private fun ModelsTab(rows: List<UsageModelEntity>) {
+    val c = Dsh.colors
+    val agg = remember(rows) {
+        rows.groupBy { modelKey(it.model) }.map { (name, list) ->
+            var input = 0L
+            var cached = 0L
+            var output = 0L
+            var cost = 0.0
+            list.forEach { r ->
+                input += r.inputTokens
+                cached += r.cachedTokens
+                output += r.outputTokens
+                val hit = r.cachedTokens.coerceAtMost(r.inputTokens)
+                cost += Pricing.cost(Usage(uncached = (r.inputTokens - hit).coerceAtLeast(0), output = r.outputTokens, cacheRead = hit), r.model) ?: 0.0
+            }
+            ModelRowData(name, input, cached.coerceAtMost(input), output, cost)
+        }.sortedByDescending { it.input + it.output }
+    }
+    if (agg.isEmpty()) {
+        SettingsGroupTitle(stringResource(R.string.usage_models))
+        SettingsCard {
+            Text(stringResource(R.string.usage_none), style = DshType.s14, color = c.labelTertiary, modifier = Modifier.padding(16.dp))
+        }
+        return
+    }
+    val peak = (agg.firstOrNull()?.let { it.input + it.output } ?: 1L).coerceAtLeast(1L)
+    val sumIn = agg.sumOf { it.input }
+    val sumCached = agg.sumOf { it.cached }
+    val sumOut = agg.sumOf { it.output }
+    SettingsGroupTitle(stringResource(R.string.usage_total))
+    SettingsCard {
+        Stats(sumIn, sumCached, sumOut)
+        Text(
+            stringResource(R.string.usage_cache_hit) + " " + hitRate(sumIn, sumCached) + " · " +
+                Pricing.format(agg.sumOf { it.cost }) + " · " + fmt(sumIn + sumOut) + " tok",
+            style = DshType.xs13, color = c.labelSecondary,
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp),
+        )
+    }
+    SettingsGroupTitle(stringResource(R.string.usage_models))
+    SettingsCard {
+        Column(Modifier.padding(vertical = 6.dp)) {
+            agg.forEach { m ->
+                var open by remember(m.name) { mutableStateOf(false) }
+                Column(Modifier.fillMaxWidth().clickable { open = !open }.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            m.name, Modifier.weight(1f), style = DshType.s14, color = c.labelPrimary,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(Pricing.format(m.cost), style = DshType.mono12, color = c.labelPrimary)
+                        Text(
+                            fmt(m.input + m.output), Modifier.width(62.dp), style = DshType.mono12,
+                            color = c.labelTertiary, textAlign = TextAlign.End,
+                        )
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Box(Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).background(c.borderL2)) {
+                        Box(
+                            Modifier.fillMaxWidth(((m.input + m.output).toFloat() / peak).coerceIn(0.02f, 1f)).height(4.dp)
+                                .clip(RoundedCornerShape(2.dp)).background(c.kindMessages),
+                        )
+                    }
+                    if (open) {
+                        Text(
+                            stringResource(R.string.usage_cache_hit) + " " + hitRate(m.input, m.cached) + " · ↑" + fmt(m.input) +
+                                " ⚡" + fmt(m.cached) + " ↓" + fmt(m.output),
+                            Modifier.padding(top = 6.dp), style = DshType.xs13, color = c.labelSecondary,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+private data class ModelRowData(val name: String, val input: Long, val cached: Long, val output: Long, val cost: Double)
+
+/** Provider prefixes ("group/", "auto/", "minimaxai/") are dropped: only the exact model name counts. */
+private fun modelKey(id: String): String = id.substringAfterLast('/').lowercase()
 
 @Composable
 private fun Stats(input: Long, cached: Long, output: Long) {
