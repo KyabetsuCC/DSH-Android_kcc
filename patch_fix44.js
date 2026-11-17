@@ -84,6 +84,13 @@ else {
   else console.log('ANCHOR drawer folder header');
   // folder-plus icon into the sessions header, right of the title
   const titleRow = '            Text(stringResource(R.string.sessions), Modifier.weight(1f), style = DshType.xs13m, color = c.labelTertiary)';
+  // fix28 把 creating 声明在标题行之后，Kotlin 不允许先用后声明：挪到状态区块，并删掉后面那份。
+  const dup = '        var creating by remember { mutableStateOf(false) }\n';
+  if (s.includes(dup)) s = s.replace(dup, '');
+  const stateAnchor = '    var filterOpen by remember { mutableStateOf(false) }';
+  if (s.includes(stateAnchor)) s = after(s, stateAnchor, '    var creating by remember { mutableStateOf(false) }', 'drawer creating');
+  else { console.log('ANCHOR drawer creating state'); bad++; }
+
   s = after(s, titleRow,
     '            IconBtn(R.drawable.ic_folder_plus, { creating = true }, size = if (compact) 34.dp else 40.dp, iconSize = 14.dp, tint = c.labelTertiary,\n' +
     '                contentDescription = stringResource(R.string.folder_new))', 'drawer folder icon');
