@@ -89,6 +89,13 @@ jobs:
           get 02-idle-look.gif    ball_look.gif
           get 03-idle-spout.gif   ball_spout.gif
           get 15-waking.gif       ball_waking.gif
+          get 06-music.gif        ball_music.gif
+          get 07-conducting.gif   ball_conducting.gif
+          get 08-building.gif     ball_building.gif
+          get 13-carrying.gif     ball_carrying.gif
+          get 14-sleeping.gif     ball_sleeping.gif
+          get 19-drag.gif         ball_drag.gif
+          get 20-swim.gif         ball_swim.gif
           ls -l app/src/main/res/drawable-nodpi/
 
       - name: 换 App 图标
@@ -114,6 +121,8 @@ jobs:
         run: |
           set -euo pipefail
           node patch_ball3.js app/src/main/java/io/github/jackwener/dsh/service/FloatingBallService.kt app/build.gradle.kts
+          node patch_ball4.js app/src/main/java/io/github/jackwener/dsh/service/FloatingBallService.kt
+          node patch_fix43.js
           grep -nE "val size = |private fun ballWorking|private fun ballNeeds|private fun ballIdle|IDLE_ALPHA" app/src/main/java/io/github/jackwener/dsh/service/FloatingBallService.kt | head -10
 
       - name: 修上游缺陷（气泡贴近 / 表格截断 / 模型删除 / 状态行 / 技能弹窗滚动 / 滑动与待办）
