@@ -58,7 +58,7 @@ else {
       '            DButton(stringResource(R.string.cancel), { vm.dismissStop() }, variant = BtnVariant.Outline)',
       '            DButton(stringResource(R.string.stop_all), { vm.confirmStop() }, variant = BtnVariant.Danger)',
       '        }) {',
-      '            Text(stringResource(R.string.stop_others_body, stopConfirm), style = DshType.s14, color = c.labelSecondary)',
+      '            Text(stringResource(R.string.stop_others_body, stopConfirm), style = DshType.s14, color = Dsh.colors.labelSecondary)',
       '        }',
       ''
     ].join('\n');
