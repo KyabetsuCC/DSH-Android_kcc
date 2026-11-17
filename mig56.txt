@@ -1,0 +1,26 @@
+    /** v6: usage per day and per model, so a cost row keeps the price of the model that spent it. */
+    val SQL_5_6 = listOf(
+        "CREATE TABLE IF NOT EXISTS `usage_model` (`day` TEXT NOT NULL, `model` TEXT NOT NULL, " +
+            "`inputTokens` INTEGER NOT NULL, `outputTokens` INTEGER NOT NULL, `cachedTokens` INTEGER NOT NULL, " +
+            "PRIMARY KEY(`day`, `model`))",
+    )
+
+    val M_5_6 = object : Migration(5, 6) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            SQL_5_6.forEach(db::execSQL)
+            // Backfill from the events: every assistant message records the model that answered it.
+            runCatching {
+                db.execSQL(
+                    "INSERT OR REPLACE INTO `usage_model`(`day`, `model`, `inputTokens`, `outputTokens`, `cachedTokens`) " +
+                        "SELECT date(`time` / 1000, 'unixepoch', 'localtime'), " +
+                        "COALESCE(json_extract(`json`, '\$.message.source.model'), '?'), " +
+                        "SUM(CAST(json_extract(`json`, '\$.usage.inputTokens') AS INTEGER)), " +
+                        "SUM(CAST(json_extract(`json`, '\$.usage.outputTokens') AS INTEGER)), " +
+                        "SUM(CAST(json_extract(`json`, '\$.usage.cacheReadTokens') AS INTEGER)) " +
+                        "FROM `events` WHERE `type` = 'assistant/message' " +
+                        "AND json_extract(`json`, '\$.usage') IS NOT NULL GROUP BY 1, 2",
+                )
+            }
+        }
+    }
+
