@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -165,7 +166,7 @@ private fun ModelsTab(all: List<UsageModelEntity>) {
         range, { range = it }, compact = true,
     )
     val agg = remember(rows) {
-        rows.groupBy { modelKey(it.model) }.map { (name, list) ->
+        rows.groupBy { it.model.substringAfterLast('/').lowercase().let { k -> if (k.isBlank() || k == "auto") OTHER_ROW else k } }.map { (name, list) ->
             var input = 0L
             var cached = 0L
             var output = 0L
@@ -178,7 +179,7 @@ private fun ModelsTab(all: List<UsageModelEntity>) {
                 cost += Pricing.cost(Usage(uncached = (r.inputTokens - hit).coerceAtLeast(0), output = r.outputTokens, cacheRead = hit), r.model) ?: 0.0
             }
             ModelRowData(name, input, cached.coerceAtMost(input), output, cost)
-        }.sortedByDescending { it.input + it.output }
+        }.sortedWith(compareBy({ it.name == OTHER_ROW }, { -(it.input + it.output) }))
     }
     if (agg.isEmpty()) {
         SettingsGroupTitle(stringResource(R.string.usage_models))
@@ -213,7 +214,8 @@ private fun ModelsTab(all: List<UsageModelEntity>) {
                 Column(Modifier.fillMaxWidth().clickable { open = !open }.padding(horizontal = 16.dp, vertical = 8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            m.name, Modifier.weight(1f), style = DshType.s14, color = c.labelPrimary,
+                            if (m.name == OTHER_ROW) stringResource(R.string.usage_other) else m.name,
+                            Modifier.weight(1f), style = DshType.s14, color = c.labelPrimary,
                             maxLines = 1, overflow = TextOverflow.Ellipsis,
                         )
                         Text(Pricing.format(m.cost), style = DshType.mono12, color = c.labelPrimary)
@@ -247,6 +249,9 @@ private data class ModelRowData(val name: String, val input: Long, val cached: L
 /** Provider prefixes ("group/", "auto/", "minimaxai/") are dropped: only the exact model name counts. */
 private fun modelKey(id: String): String = id.substringAfterLast('/').lowercase()
 
+/** "auto" is a routing placeholder without a model name: those rows are grouped under "other". */
+private const val OTHER_ROW = "__other__"
+
 @Composable
 private fun Stats(input: Long, cached: Long, output: Long) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp)) {
@@ -269,27 +274,54 @@ private fun StatCell(label: String, value: String, modifier: Modifier = Modifier
 @Composable
 private fun Bars(days: List<UsageEntity>) {
     val c = Dsh.colors
-    val max = remember(days) { days.maxOfOrNull { it.inputTokens + it.outputTokens }?.coerceAtLeast(1L) ?: 1L }
+    var metric by remember { mutableIntStateOf(0) }
+    var open by remember { mutableStateOf<String?>(null) }
+    val values = remember(days, metric) {
+        days.map { u ->
+            if (metric == 0) (u.inputTokens + u.outputTokens).toDouble()
+            else (Pricing.dayCosts[u.day] ?: Pricing.cost(usageOf(u)) ?: 0.0)
+        }
+    }
+    val max = (values.maxOrNull() ?: 0.0).coerceAtLeast(if (metric == 0) 1.0 else 0.000001)
     Column(Modifier.padding(vertical = 8.dp)) {
-        days.forEach { u ->
-            val v = u.inputTokens + u.outputTokens
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
-                Text(u.day.removePrefix("20"), Modifier.width(48.dp), style = DshType.xs13, color = c.labelSecondary)
-                Column(Modifier.weight(1f)) {
-                    Row {
-                        Text(fmt(v) + " tok", Modifier.weight(1f), style = DshType.mono12, color = c.labelPrimary)
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(costText(u).removePrefix(SEP_PREFIX), Modifier.width(56.dp), style = DshType.mono12, color = c.labelPrimary, textAlign = TextAlign.End)
-                            Text(stringResource(R.string.usage_cache_hit_short, hitRate(u.inputTokens, u.cachedTokens)), Modifier.width(78.dp), style = DshType.mono12, color = c.labelTertiary, textAlign = TextAlign.End)
+        Row(Modifier.padding(horizontal = 16.dp, vertical = 2.dp)) {
+            Segmented(
+                listOf(stringResource(R.string.usage_tokens), stringResource(R.string.usage_chart_cost)),
+                metric, { metric = it }, Modifier.weight(1f), compact = true,
+            )
+        }
+        days.forEachIndexed { i, u ->
+            val v = values[i]
+            val label = if (metric == 0) fmt(u.inputTokens + u.outputTokens) + " tok" else Pricing.format(v)
+            Column(Modifier.fillMaxWidth().clickable { open = if (open == u.day) null else u.day }) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
+                    Text(u.day.removePrefix("20"), Modifier.width(48.dp), style = DshType.xs13, color = c.labelSecondary)
+                    Column(Modifier.weight(1f)) {
+                        Row {
+                            Text(label, Modifier.weight(1f), style = DshType.mono12, color = c.labelPrimary)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(costText(u).removePrefix(SEP_PREFIX), Modifier.width(56.dp), style = DshType.mono12, color = c.labelPrimary, textAlign = TextAlign.End)
+                                Text(stringResource(R.string.usage_cache_hit_short, hitRate(u.inputTokens, u.cachedTokens)), Modifier.width(78.dp), style = DshType.mono12, color = c.labelTertiary, textAlign = TextAlign.End)
+                            }
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        Box(Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).background(c.borderL2)) {
+                            Box(
+                                Modifier.fillMaxWidth(((v / max).toFloat()).coerceIn(0.02f, 1f)).height(4.dp)
+                                    .clip(RoundedCornerShape(2.dp)).background(c.kindMessages),
+                            )
                         }
                     }
-                    Spacer(Modifier.height(4.dp))
-                    Box(Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).background(c.borderL2)) {
-                        Box(
-                            Modifier.fillMaxWidth((v.toFloat() / max).coerceIn(0.02f, 1f)).height(4.dp)
-                                .clip(RoundedCornerShape(2.dp)).background(c.kindMessages),
-                        )
-                    }
+                }
+                if (open == u.day) {
+                    Text(
+                        stringResource(R.string.usage_input) + " " + fmt(u.inputTokens) + " · " +
+                            stringResource(R.string.usage_cached) + " " + fmt(u.cachedTokens) + " · " +
+                            stringResource(R.string.usage_output) + " " + fmt(u.outputTokens) + " · " +
+                            stringResource(R.string.usage_cache_hit) + " " + hitRate(u.inputTokens, u.cachedTokens),
+                        style = DshType.xs13, color = c.labelSecondary,
+                        modifier = Modifier.padding(start = 64.dp, end = 16.dp, bottom = 8.dp),
+                    )
                 }
             }
         }
@@ -434,17 +466,39 @@ private fun MonthBars(days: List<UsageEntity>, today: LocalDate) {
     val c = Dsh.colors
     val len = today.lengthOfMonth()
     val byDay = remember(days) { days.associateBy { it.day } }
+    var metric by remember { mutableIntStateOf(0) }
+    var sel by remember { mutableIntStateOf(today.dayOfMonth) }
     val values = remember(days, len) {
-        (1..len).map { d ->
-            val e = byDay[today.withDayOfMonth(d).toString()]
-            (e?.inputTokens ?: 0L) + (e?.outputTokens ?: 0L)
+        (1..len).map { d -> byDay[today.withDayOfMonth(d).toString()] }
+    }
+    val nums = remember(values, metric) {
+        values.map { e ->
+            when {
+                e == null -> 0.0
+                metric == 0 -> (e.inputTokens + e.outputTokens).toDouble()
+                else -> Pricing.dayCosts[e.day] ?: Pricing.cost(usageOf(e)) ?: 0.0
+            }
         }
     }
-    val peak = (values.maxOrNull() ?: 0L).coerceAtLeast(1L)
-    Row(Modifier.fillMaxWidth().height(58.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(1.dp)) {
-        values.forEach { v ->
-            val h = if (v <= 0L) 2.dp else ((56f * (v.toFloat() / peak.toFloat())).coerceAtLeast(3f)).dp
-            Box(Modifier.weight(1f).height(h).clip(RoundedCornerShape(1.5.dp)).background(if (v <= 0L) c.borderL2 else c.business))
+    val peak = (nums.maxOrNull() ?: 0.0).coerceAtLeast(if (metric == 0) 1.0 else 0.000001)
+    Segmented(
+        listOf(stringResource(R.string.usage_tokens), stringResource(R.string.usage_chart_cost)),
+        metric, { metric = it }, compact = true,
+    )
+    Spacer(Modifier.height(6.dp))
+    Row(Modifier.fillMaxWidth().height(58.dp), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
+        nums.forEachIndexed { i, v ->
+            val on = sel == i + 1
+            Box(
+                Modifier.weight(1f).fillMaxHeight().clickable { sel = i + 1 },
+                contentAlignment = Alignment.BottomCenter,
+            ) {
+                val h = if (v <= 0.0) 2.dp else ((56f * (v / peak).toFloat()).coerceAtLeast(3f)).dp
+                Box(
+                    Modifier.fillMaxWidth().height(h).clip(RoundedCornerShape(1.5.dp))
+                        .background(if (v <= 0.0) c.borderL2 else if (on) c.kindMessages else c.business),
+                )
+            }
         }
     }
     Spacer(Modifier.height(4.dp))
@@ -455,6 +509,19 @@ private fun MonthBars(days: List<UsageEntity>, today: LocalDate) {
         Spacer(Modifier.weight(1f))
         Text(len.toString(), style = DshType.tiny10, color = c.labelTertiary)
     }
+    val picked = today.withDayOfMonth(sel).toString()
+    val e = byDay[picked]
+    Spacer(Modifier.height(6.dp))
+    Text(
+        picked.removePrefix("20") + " · " +
+            if (e == null) stringResource(R.string.usage_none)
+            else stringResource(R.string.usage_input) + " " + fmt(e.inputTokens) + " · " +
+                stringResource(R.string.usage_cached) + " " + fmt(e.cachedTokens) + " · " +
+                stringResource(R.string.usage_output) + " " + fmt(e.outputTokens) + " · " +
+                stringResource(R.string.usage_cache_hit) + " " + hitRate(e.inputTokens, e.cachedTokens) + " · " +
+                (Pricing.dayCosts[picked]?.let { Pricing.format(it) } ?: costText(e).removePrefix(SEP_PREFIX)),
+        style = DshType.xs13, color = c.labelSecondary,
+    )
 }
 
 private const val SEP = ','
