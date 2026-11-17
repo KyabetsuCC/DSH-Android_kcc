@@ -46,6 +46,9 @@ edit(CONV + '/Composer.kt', (s) => {
   s = s.replace('fun clear() { text = ""; images.clear(); files.clear() }', 'fun clear() { tv = TextFieldValue(""); images.clear(); files.clear() }');
   s = s.replace('        BasicTextField(\n            state.text,\n            { v ->\n                if (voice?.active == true) voice.onUserEdit()\n                state.text = v',
                 '        BasicTextField(\n            state.tv,\n            { v ->\n                if (voice?.active == true) voice.onUserEdit()\n                state.onEdit(v)');
+  if (!s.includes('v.text == "/"')) {
+    s = s.replace('if (v == "/") slashOpen = true else if (slashOpen && !v.startsWith("/")) slashOpen = false', 'if (v.text == "/") slashOpen = true else if (slashOpen && !v.text.startsWith("/")) slashOpen = false');
+  }
   if (!s.includes('import androidx.compose.ui.text.input.TextFieldValue')) {
     s = s.replace('import androidx.compose.ui.text.input.KeyboardCapitalization',
       'import androidx.compose.ui.text.TextRange\nimport androidx.compose.ui.text.input.KeyboardCapitalization\nimport androidx.compose.ui.text.input.TextFieldValue');
