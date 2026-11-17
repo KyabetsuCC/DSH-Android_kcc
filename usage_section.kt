@@ -170,7 +170,10 @@ private fun Bars(days: List<UsageEntity>) {
                 Column(Modifier.weight(1f)) {
                     Row {
                         Text(fmt(v) + " tok", Modifier.weight(1f), style = DshType.mono12, color = c.labelPrimary)
-                        Text(stringResource(R.string.usage_cache_hit_short, hitRate(u.inputTokens, u.cachedTokens)) + costText(u), style = DshType.mono12, color = c.labelTertiary)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(costText(u).removePrefix(SEP_PREFIX), Modifier.width(56.dp), style = DshType.mono12, color = c.labelPrimary, textAlign = TextAlign.End)
+                            Text(stringResource(R.string.usage_cache_hit_short, hitRate(u.inputTokens, u.cachedTokens)), Modifier.width(78.dp), style = DshType.mono12, color = c.labelTertiary, textAlign = TextAlign.End)
+                        }
                     }
                     Spacer(Modifier.height(4.dp))
                     Box(Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).background(c.borderL2)) {
@@ -354,6 +357,8 @@ private fun usageOf(u: UsageEntity): Usage {
     val cached = u.cachedTokens.coerceAtMost(u.inputTokens)
     return Usage(uncached = (u.inputTokens - cached).coerceAtLeast(0), output = u.outputTokens, cacheRead = cached)
 }
+
+private const val SEP_PREFIX = " · "
 
 private fun costText(u: UsageEntity): String = (Pricing.dayCosts[u.day] ?: Pricing.cost(usageOf(u)))?.let { " · " + Pricing.format(it) }.orEmpty()
 
