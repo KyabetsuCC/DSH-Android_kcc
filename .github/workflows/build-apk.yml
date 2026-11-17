@@ -148,6 +148,10 @@ jobs:
           node patch_fix26.js
           node patch_fix27.js
           node patch_fix28.js
+          cp pricing.kt app/src/main/java/io/github/jackwener/dsh/core/session/Pricing.kt
+          node patch_fix29.js
+          grep -c "Pricing.format(it)" app/src/main/java/io/github/jackwener/dsh/feature/conversation/Stream.kt
+          grep -c "var tv by mutableStateOf(TextFieldValue" app/src/main/java/io/github/jackwener/dsh/feature/conversation/Composer.kt
           node patch_fix18.js
           node patch_fix19.js
           node patch_fix20.js
