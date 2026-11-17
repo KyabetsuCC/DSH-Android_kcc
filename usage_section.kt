@@ -44,6 +44,12 @@ import java.time.format.TextStyle
 import java.util.Locale
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
+import android.net.Uri
 import kotlinx.coroutines.flow.stateIn
 
 @HiltViewModel
@@ -112,6 +118,8 @@ fun UsagePage(vm: UsageViewModel = hiltViewModel()) {
         }
         SettingsGroupTitle(stringResource(R.string.usage_heatmap))
         SettingsCard { HeatMap(days) }
+        SettingsGroupTitle(stringResource(R.string.usage_month))
+        SettingsCard { MonthSummary(days) }
     }
 }
 
@@ -233,5 +241,52 @@ private fun HeatMap(days: List<UsageEntity>) {
                 Text(stringResource(R.string.usage_more), style = DshType.xs13.copy(fontSize = 10.sp), color = c.labelTertiary)
             }
         }
+    }
+}
+
+/** 本月汇总 + 导出 CSV（按天一行，含命中率）。 */
+@Composable
+private fun MonthSummary(days: List<UsageEntity>) {
+    val ctx = LocalContext.current
+    val month = remember(days) { days.filter { it.day.startsWith(LocalDate.now().toString().substring(0, 7)) } }
+    val input = month.sumOf { it.inputTokens }
+    val cached = month.sumOf { it.cachedTokens }
+    val output = month.sumOf { it.outputTokens }
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri: Uri? ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        runCatching {
+            ctx.contentResolver.openOutputStream(uri)?.use { out ->
+                val sb = StringBuilder("day,input_tokens,cached_tokens,output_tokens,hit_rate\n")
+                for (d in days.sortedBy { it.day }) {
+                    sb.append(d.day).append(,).append(d.inputTokens).append(,).append(d.cachedTokens)
+                        .append(,).append(d.outputTokens).append(,).append(hitRate(d.inputTokens, d.cachedTokens)).append(
+)
+                }
+                out.write(sb.toString().toByteArray())
+            }
+        }
+    }
+    Column(Modifier.fillMaxWidth().padding(16.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(fmt(input), style = DshType.s14m.copy(fontSize = 18.sp), color = c.labelPrimary)
+            Text(stringResource(R.string.usage_month_total) + " · " + month.size + " " + stringResource(R.string.usage_days),
+                style = DshType.xs13, color = c.labelSecondary)
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            stringResource(R.string.usage_month_detail, fmt(cached), fmt(output), hitRate(input, cached)),
+            style = DshType.xs13, color = c.labelSecondary,
+        )
+        Spacer(Modifier.height(12.dp))
+        Text(
+            stringResource(R.string.usage_export_csv),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(9.dp))
+                .background(c.selector)
+                .clickable { launcher.launch("dsh-usage-" + LocalDate.now() + ".csv") }
+                .padding(vertical = 10.dp),
+            style = DshType.s14m, color = c.labelPrimary, textAlign = TextAlign.Center,
+        )
     }
 }
