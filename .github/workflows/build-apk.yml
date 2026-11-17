@@ -157,6 +157,8 @@ jobs:
           node patch_fix36.js
           node patch_fix37.js
           node patch_fix38.js
+          node patch_fix39.js
+          grep -c "usage_range_all" app/src/main/res/values/strings.xml
           grep -c "usage_models" app/src/main/res/values/strings.xml
           grep -c "substringAfterLast" app/src/main/java/io/github/jackwener/dsh/core/session/SessionStore.kt
           grep -c "usage_model" app/src/main/java/io/github/jackwener/dsh/core/data/Database.kt
