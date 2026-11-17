@@ -147,6 +147,7 @@ jobs:
           node patch_fix25.js
           node patch_fix26.js
           node patch_fix27.js
+          node patch_fix28.js
           node patch_fix18.js
           node patch_fix19.js
           node patch_fix20.js
