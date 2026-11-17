@@ -138,12 +138,13 @@ jobs:
           cp image_viewer.kt app/src/main/java/io/github/jackwener/dsh/feature/conversation/ImageViewer.kt
           node patch_fix17.js
           cp terminal.kt app/src/main/java/io/github/jackwener/dsh/feature/settings/TerminalPage.kt
-          cp ic_term.xml ic_copy.xml ic_plus.xml ic_close.xml app/src/main/res/drawable/
+          cp ic_term.xml ic_copy.xml ic_plus.xml ic_close.xml ic_enter_outline.xml app/src/main/res/drawable/
           node patch_fix22.js
           cp backup_page.kt app/src/main/java/io/github/jackwener/dsh/feature/settings/BackupPage.kt
           node patch_fix23.js
           node patch_fix24.js
           node patch_fix25.js
+          node patch_fix26.js
           node patch_fix18.js
           node patch_fix19.js
           node patch_fix20.js
