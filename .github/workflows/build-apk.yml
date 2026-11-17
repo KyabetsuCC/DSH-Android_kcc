@@ -172,6 +172,8 @@ jobs:
           node patch_fix42.js
           cp uiprefs.kt app/src/main/java/io/github/jackwener/dsh/core/data/UiPrefs.kt
           node patch_fix44.js
+          cp session_search.kt app/src/main/java/io/github/jackwener/dsh/feature/conversation/SessionSearch.kt
+          node patch_fix45.js
           grep -c "session/cancel" app/src/main/java/io/github/jackwener/dsh/core/session/SessionStore.kt
           grep -c "usage_range_all" app/src/main/res/values/strings.xml
           grep -c "usage_models" app/src/main/res/values/strings.xml
