@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -30,6 +29,9 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.jackwener.dsh.R
 import io.github.jackwener.dsh.core.data.UsageDao
+import io.github.jackwener.dsh.core.data.UsageEntity
+import io.github.jackwener.dsh.core.data.UsageModelDao
+import io.github.jackwener.dsh.core.data.UsageModelEntity
 import io.github.jackwener.dsh.core.designsystem.Dsh
 import io.github.jackwener.dsh.core.designsystem.DshType
 import io.github.jackwener.dsh.core.designsystem.Radius
@@ -45,8 +47,10 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 
 @HiltViewModel
-class DrawerStatsViewModel @Inject constructor(dao: UsageDao) : ViewModel() {
+class DrawerStatsViewModel @Inject constructor(dao: UsageDao, modelDao: UsageModelDao) : ViewModel() {
     val days = dao.observe().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    /** Per-day, per-model rows: the card prices the day with the models that spent it, not the open session's. */
+    val modelDays = modelDao.observe().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 }
 
 /** 一天里的峰/谷状态：峰时 = UTC 01:00-04:00 与 06:00-10:00 的周一至周五。 */
@@ -68,8 +72,13 @@ private fun peakState(now: ZonedDateTime): PeakState {
     return PeakState(false, Duration.ofMinutes((next - minute).toLong()), minute, segs)
 }
 
-private fun usageOf(u: io.github.jackwener.dsh.core.data.UsageEntity?): Usage =
+private fun usageOf(u: UsageEntity?): Usage =
     if (u == null) Usage() else Usage(uncached = (u.inputTokens - u.cachedTokens).coerceAtLeast(0L), output = u.outputTokens, cacheRead = u.cachedTokens)
+
+private fun usageOfModel(row: UsageModelEntity): Usage {
+    val cached = row.cachedTokens.coerceAtMost(row.inputTokens)
+    return Usage(uncached = (row.inputTokens - cached).coerceAtLeast(0L), output = row.outputTokens, cacheRead = cached)
+}
 
 private fun compact(n: Long): String {
     val v = n.toDouble()
@@ -86,8 +95,20 @@ private fun compact(n: Long): String {
 fun DrawerStats(vm: DrawerStatsViewModel = hiltViewModel()) {
     val c = Dsh.colors
     val days by vm.days.collectAsStateWithLifecycle()
+    val modelDays by vm.modelDays.collectAsStateWithLifecycle()
     val today = LocalDate.now().toString()
     val usage = remember(days) { usageOf(days.firstOrNull { it.day == today }) }
+    val cost = remember(days, modelDays) {
+        val rows = modelDays
+        val mine = rows.filter { it.day == today }
+        val value = if (mine.isNotEmpty()) {
+            mine.sumOf { Pricing.cost(usageOfModel(it), it.model) ?: 0.0 }
+        } else {
+            val fallback = rows.groupBy { it.model }.maxByOrNull { (_, v) -> v.sumOf { r -> r.inputTokens + r.outputTokens } }?.key
+            Pricing.cost(usage, fallback) ?: 0.0
+        }
+        Pricing.format(value)
+    }
     val now by produceState(initialValue = ZonedDateTime.now()) {
         while (true) {
             value = ZonedDateTime.now()
@@ -95,7 +116,6 @@ fun DrawerStats(vm: DrawerStatsViewModel = hiltViewModel()) {
         }
     }
     val state = remember(now) { peakState(now) }
-    val cost = Pricing.cost(usage)?.let { Pricing.format(it) } ?: "—"
     val rh = state.remain.toHours()
     val rm = state.remain.toMinutes() % 60
     val remain = if (rh > 0) "${rh}h ${rm}m" else "${rm}m"
