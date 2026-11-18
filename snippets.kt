@@ -144,7 +144,7 @@ fun SnippetOverlay(onClose: () -> Unit) {
                                 }
                             }
                             DMenu(menuId == s.id, { menuId = null }) {
-                                MenuItem(stringResource(R.string.rename), { menuId = null; editing = s }, R.drawable.dsw_edit_outline)
+                                MenuItem(stringResource(R.string.snippet_edit), { menuId = null; editing = s }, R.drawable.dsw_edit_outline)
                                 MenuItem(stringResource(R.string.copy), {
                                     menuId = null
                                     copyText(ctx, s.text)
@@ -165,7 +165,7 @@ fun SnippetOverlay(onClose: () -> Unit) {
         val cur = editing
         var title by remember(cur?.id, adding) { mutableStateOf(cur?.title ?: "") }
         var text by remember(cur?.id, adding) { mutableStateOf(cur?.text ?: "") }
-        DDialog({ adding = false; editing = null }, stringResource(if (cur == null) R.string.snippet_new else R.string.rename), buttons = {
+        DDialog({ adding = false; editing = null }, stringResource(if (cur == null) R.string.snippet_new else R.string.snippet_edit), buttons = {
             DButton(stringResource(R.string.cancel), { adding = false; editing = null }, variant = BtnVariant.Outline)
             DButton(stringResource(R.string.save), {
                 if (cur == null) SnippetStore.add(ctx, title, text) else SnippetStore.update(ctx, cur.id, title, text)
