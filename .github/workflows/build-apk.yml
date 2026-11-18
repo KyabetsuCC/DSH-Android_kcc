@@ -199,7 +199,6 @@ jobs:
           node patch_fix59.js
           node patch_fix60.js
           node patch_fix61.js
-          node patch_fix62.js
           grep -c "session/cancel" app/src/main/java/io/github/jackwener/dsh/core/session/SessionStore.kt
           grep -c "usage_range_all" app/src/main/res/values/strings.xml
           grep -c "usage_models" app/src/main/res/values/strings.xml
@@ -214,12 +213,12 @@ jobs:
           grep -c "set_ui_group" app/src/main/java/io/github/jackwener/dsh/feature/settings/SettingsScreen.kt
           grep -c "ui-card-paired" app/src/main/java/io/github/jackwener/dsh/feature/settings/SettingsScreen.kt
           grep -c "FF000000" app/src/main/res/values/colors.xml
-          grep -c locale app/src/main/res/xml/locales_config.xml
           grep -c "Pricing.format(it)" app/src/main/java/io/github/jackwener/dsh/feature/conversation/Stream.kt
           grep -c "var tv by mutableStateOf(TextFieldValue" app/src/main/java/io/github/jackwener/dsh/feature/conversation/Composer.kt
           node patch_fix18.js
           node patch_fix19.js
           node patch_fix20.js
+          node patch_fix62.js
           grep -n "val gap = dp" app/src/main/java/io/github/jackwener/dsh/service/FloatingBallService.kt
           grep -c "tableComponent" app/src/main/java/io/github/jackwener/dsh/core/designsystem/Content.kt
           grep -c "prov_model_remove" app/src/main/res/values/strings.xml
@@ -229,6 +228,8 @@ jobs:
           grep -c "!writtenThisTurn -> TodoDockMode.Hidden" app/src/main/java/io/github/jackwener/dsh/core/session/Projection.kt
           grep -c "widening schedule" app/src/main/java/io/github/jackwener/dsh/feature/conversation/Stream.kt
           grep -c "lastPaneHeight" app/src/main/java/io/github/jackwener/dsh/feature/conversation/Stream.kt
+          test ! -d app/src/main/res/values-ru
+          grep -c locale app/src/main/res/xml/locales_config.xml
 
       - name: 检查更新指向自己的仓库 + 版本号
         if: ${{ inputs.app_id != '' }}
