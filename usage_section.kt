@@ -129,7 +129,7 @@ fun UsagePage(vm: UsageViewModel = hiltViewModel()) {
             Stats(total[0], total[1], total[2])
             Text(
                 stringResource(R.string.usage_cache_hit) + " " + hitRate(total[0], total[1]) + " · " +
-                    fmt(total[0] + total[2]) + " tok · " + stringResource(R.string.usage_days, days.size),
+                    fmt(total[0] + total[2]) + " tok · " + monthCost(days) + " · " + stringResource(R.string.usage_days, days.size),
                 style = DshType.xs13, color = c.labelSecondary,
                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp),
             )
@@ -157,14 +157,6 @@ private fun ModelsTab(all: List<UsageModelEntity>) {
             else -> all
         }
     }
-    Segmented(
-        listOf(
-            stringResource(R.string.usage_range_day),
-            stringResource(R.string.usage_range_month),
-            stringResource(R.string.usage_range_all),
-        ),
-        range, { range = it }, compact = true,
-    )
     val agg = remember(rows) {
         rows.groupBy { it.model.substringAfterLast('/').lowercase().let { k -> if (k.isBlank() || k == "auto") OTHER_ROW else k } }.map { (name, list) ->
             var input = 0L
@@ -203,6 +195,14 @@ private fun ModelsTab(all: List<UsageModelEntity>) {
         )
     }
     SettingsGroupTitle(stringResource(R.string.usage_models))
+    Segmented(
+        listOf(
+            stringResource(R.string.usage_range_day),
+            stringResource(R.string.usage_range_month),
+            stringResource(R.string.usage_range_all),
+        ),
+        range, { range = it }, compact = true,
+    )
     Text(
         stringResource(R.string.usage_models_note, rows.map { it.day }.distinct().size, rows.minOfOrNull { it.day } ?: "-"),
         Modifier.padding(start = 4.dp, end = 4.dp, bottom = 8.dp), style = DshType.xs13, color = c.labelTertiary,
