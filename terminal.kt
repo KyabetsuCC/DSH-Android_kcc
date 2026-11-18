@@ -315,7 +315,16 @@ fun TerminalOverlay(onClose: () -> Unit) {
                     tf = tf.copy(selection = TextRange(p))
                 }
                 TermKey("/", 1f) { insert("/") }
-                TermKey("Shift", 1f, active = shiftOn) { shiftOn = !shiftOn; ctrlOn = false; altOn = false }
+                TermKey("⌫", 1f) {
+                    val t = tf.text
+                    val a = tf.selection.start
+                    val b = tf.selection.end
+                    if (a != b) {
+                        tf = TextFieldValue(t.substring(0, a) + t.substring(b), TextRange(a))
+                    } else if (a > 0) {
+                        tf = TextFieldValue(t.substring(0, a - 1) + t.substring(a), TextRange(a - 1))
+                    }
+                }
                 TermKey("Alt", 1f, active = altOn) { altOn = !altOn; ctrlOn = false; shiftOn = false }
                 TermKey("Del", 1f) {
                     val t = tf.text
