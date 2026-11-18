@@ -52,7 +52,7 @@ import java.io.File
 import java.util.UUID
 
 /** One saved snippet: a command, a prompt, or anything worth one tap. */
-data class Snippet(val id: String, val text: String)
+data class Snippet(val id: String, val title: String, val text: String)
 
 /** Snippets live in files/notes/snippets.json — no Room migration involved. */
 object SnippetStore {
@@ -68,7 +68,7 @@ object SnippetStore {
         (0 until arr.length()).mapNotNull { i ->
             val o = arr.optJSONObject(i) ?: return@mapNotNull null
             val t = o.optString("text")
-            if (t.isBlank()) null else Snippet(o.optString("id").ifBlank { UUID.randomUUID().toString() }, t)
+            if (t.isBlank()) null else Snippet(o.optString("id").ifBlank { UUID.randomUUID().toString() }, o.optString("title"), t)
         }
     }.getOrDefault(emptyList())
 
@@ -77,22 +77,22 @@ object SnippetStore {
             val f = file(c)
             f.parentFile?.mkdirs()
             val arr = JSONArray()
-            list.forEach { s -> arr.put(JSONObject().put("id", s.id).put("text", s.text)) }
+            list.forEach { s -> arr.put(JSONObject().put("id", s.id).put("title", s.title).put("text", s.text)) }
             f.writeText(arr.toString())
             version++
         }
     }
 
-    fun add(c: Context, text: String) {
+    fun add(c: Context, title: String, text: String) {
         val t = text.trim()
         if (t.isEmpty()) return
-        save(c, listOf(Snippet(UUID.randomUUID().toString(), t)) + all(c))
+        save(c, listOf(Snippet(UUID.randomUUID().toString(), title.trim(), t)) + all(c))
     }
 
-    fun update(c: Context, id: String, text: String) {
+    fun update(c: Context, id: String, title: String, text: String) {
         val t = text.trim()
         if (t.isEmpty()) return remove(c, id)
-        save(c, all(c).map { if (it.id == id) it.copy(text = t) else it })
+        save(c, all(c).map { if (it.id == id) it.copy(title = title.trim(), text = t) else it })
     }
 
     fun remove(c: Context, id: String) = save(c, all(c).filter { it.id != id })
@@ -125,17 +125,23 @@ fun SnippetOverlay(onClose: () -> Unit) {
                 Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     items.forEach { s ->
                         Box {
-                            Row(
+                            Column(
                                 Modifier.fillMaxWidth().clip(Radius.md).background(c.bgLayer2)
                                     .clickable {
                                         copyText(ctx, s.text)
                                         Toast.makeText(ctx, ctx.getString(R.string.snippet_copied), Toast.LENGTH_SHORT).show()
                                     }
-                                    .padding(start = 12.dp, top = 10.dp, end = 4.dp, bottom = 10.dp),
-                                verticalAlignment = Alignment.Top,
+                                    .padding(start = 12.dp, top = 10.dp, end = 4.dp, bottom = 12.dp),
                             ) {
-                                androidx.compose.material3.Text(s.text, Modifier.weight(1f), style = DshType.xs13, color = c.labelPrimary, maxLines = 6, overflow = TextOverflow.Ellipsis)
-                                IconBtn(R.drawable.dsw_ellipsis_outline, { menuId = s.id }, size = 32.dp, iconSize = 14.dp, tint = c.labelTertiary, contentDescription = stringResource(R.string.more_actions))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    val head = if (s.title.isNotBlank()) s.title else s.text.lineSequence().firstOrNull().orEmpty().take(40)
+                                    androidx.compose.material3.Text(head, Modifier.weight(1f), style = DshType.s14m, color = c.labelPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    IconBtn(R.drawable.dsw_ellipsis_outline, { menuId = s.id }, size = 32.dp, iconSize = 14.dp, tint = c.labelTertiary, contentDescription = stringResource(R.string.more_actions))
+                                }
+                                if (s.title.isNotBlank()) {
+                                    Spacer(Modifier.height(4.dp))
+                                    androidx.compose.material3.Text(s.text, Modifier.padding(end = 8.dp), style = DshType.xs13, color = c.labelSecondary, maxLines = 4, overflow = TextOverflow.Ellipsis)
+                                }
                             }
                             DMenu(menuId == s.id, { menuId = null }) {
                                 MenuItem(stringResource(R.string.rename), { menuId = null; editing = s }, R.drawable.dsw_edit_outline)
@@ -157,15 +163,17 @@ fun SnippetOverlay(onClose: () -> Unit) {
 
     if (adding || editing != null) {
         val cur = editing
+        var title by remember(cur?.id, adding) { mutableStateOf(cur?.title ?: "") }
         var text by remember(cur?.id, adding) { mutableStateOf(cur?.text ?: "") }
         DDialog({ adding = false; editing = null }, stringResource(if (cur == null) R.string.snippet_new else R.string.rename), buttons = {
             DButton(stringResource(R.string.cancel), { adding = false; editing = null }, variant = BtnVariant.Outline)
             DButton(stringResource(R.string.save), {
-                if (cur == null) SnippetStore.add(ctx, text) else SnippetStore.update(ctx, cur.id, text)
+                if (cur == null) SnippetStore.add(ctx, title, text) else SnippetStore.update(ctx, cur.id, title, text)
                 adding = false
                 editing = null
             }, enabled = text.isNotBlank())
         }) {
+            DInput(title, { title = it }, placeholder = stringResource(R.string.snippet_title_hint))
             DInput(text, { text = it }, placeholder = stringResource(R.string.snippet_hint), singleLine = false, minHeight = 120.dp)
         }
     }
