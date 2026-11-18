@@ -226,9 +226,11 @@ jobs:
           mkdir -p app/src/main/java/io/github/jackwener/dsh/feature/browser
           cp browser_session.kt app/src/main/java/io/github/jackwener/dsh/core/capability/BrowserSession.kt
           cp browser_page.kt app/src/main/java/io/github/jackwener/dsh/feature/browser/BrowserPage.kt
+          cp bookmarks.kt app/src/main/java/io/github/jackwener/dsh/feature/browser/BookmarkStore.kt
           node patch_fix67.js
           node patch_fix68.js
           node patch_fix69.js
+          node patch_fix70.js
           node patch_fix62.js
           grep -n "val gap = dp" app/src/main/java/io/github/jackwener/dsh/service/FloatingBallService.kt
           grep -c "tableComponent" app/src/main/java/io/github/jackwener/dsh/core/designsystem/Content.kt
@@ -252,6 +254,8 @@ jobs:
           grep -c browser_home_hint app/src/main/res/values/strings.xml
           grep -c ic_home app/src/main/java/io/github/jackwener/dsh/feature/browser/BrowserPage.kt
           test -f app/src/main/res/drawable/ic_home.xml
+          grep -c BookmarkStore app/src/main/java/io/github/jackwener/dsh/feature/browser/BrowserPage.kt
+          grep -c "browser_tabs" app/src/main/res/values/strings.xml
           grep -c copy_page_title app/src/main/res/values/strings.xml
 
       - name: 检查更新指向自己的仓库 + 版本号
