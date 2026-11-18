@@ -19,6 +19,10 @@ on:
         description: "versionCode（发布用，必须比已装的大）"
         required: false
         default: ""
+      ver:
+        description: "版本名（如 0.1.0；留空=自动 0.0.N）"
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -38,11 +42,15 @@ jobs:
             curl -sfL "https://raw.githubusercontent.com/${{ github.repository }}/main/update/latest.json" -o lm.json || true
             VC=$(node -e "try{console.log(JSON.parse(require('fs').readFileSync('lm.json','utf8')).versionCode+1)}catch(e){console.log(31)}")
           fi
-          N=$((VC-30)); [ "$N" -ge 1 ] || N=1
+          VER="${{ inputs.ver }}"
+          if [ -z "$VER" ]; then
+            N=$((VC-30)); [ "$N" -ge 1 ] || N=1
+            VER="0.0.$N"
+          fi
           echo "VC=$VC" >> "$GITHUB_ENV"
-          echo "NVER=kcc-0.0.$N" >> "$GITHUB_ENV"
-          echo "RTAG=vkcc-0.0.$N" >> "$GITHUB_ENV"
-          echo "versionCode=$VC versionName=kcc-0.0.$N"
+          echo "NVER=kcc-$VER" >> "$GITHUB_ENV"
+          echo "RTAG=vkcc-$VER" >> "$GITHUB_ENV"
+          echo "versionCode=$VC versionName=kcc-$VER"
 
       - name: JDK 21
         uses: actions/setup-java@v4
@@ -187,6 +195,7 @@ jobs:
           node patch_fix55.js
           node patch_fix56.js
           node patch_fix57.js
+          node patch_fix58.js
           grep -c "session/cancel" app/src/main/java/io/github/jackwener/dsh/core/session/SessionStore.kt
           grep -c "usage_range_all" app/src/main/res/values/strings.xml
           grep -c "usage_models" app/src/main/res/values/strings.xml
@@ -198,6 +207,7 @@ jobs:
           grep -c "cost_usd" app/src/main/java/io/github/jackwener/dsh/feature/settings/UsageSection.kt
           grep -c "stop_others_body" app/src/main/java/io/github/jackwener/dsh/feature/conversation/HomeScreen.kt
           grep -c "set_cost_currency" app/src/main/java/io/github/jackwener/dsh/feature/settings/SettingsScreen.kt
+          grep -c "set_immersive" app/src/main/res/values/strings.xml
           grep -c "Pricing.format(it)" app/src/main/java/io/github/jackwener/dsh/feature/conversation/Stream.kt
           grep -c "var tv by mutableStateOf(TextFieldValue" app/src/main/java/io/github/jackwener/dsh/feature/conversation/Composer.kt
           node patch_fix18.js
