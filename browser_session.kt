@@ -55,29 +55,29 @@ object BrowserSession {
         cm.setAcceptThirdPartyCookies(this, true)
         webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
-                loading = true
-                progress = 0
-                address = url ?: address
+                BrowserSession.loading = true
+                BrowserSession.progress = 0
+                BrowserSession.address = url ?: BrowserSession.address
                 runCatching { onStarted() }
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
-                loading = false
-                address = view?.url ?: url ?: address
-                canBack = view?.canGoBack() == true
-                canForward = view?.canGoForward() == true
+                BrowserSession.loading = false
+                BrowserSession.address = view?.url ?: url ?: BrowserSession.address
+                BrowserSession.canBack = view?.canGoBack() == true
+                BrowserSession.canForward = view?.canGoForward() == true
                 runCatching { CookieManager.getInstance().flush() }
                 runCatching { onFinished() }
             }
         }
         webChromeClient = object : WebChromeClient() {
             override fun onProgressChanged(view: WebView?, newProgress: Int) {
-                progress = newProgress
-                loading = newProgress < 100
+                BrowserSession.progress = newProgress
+                BrowserSession.loading = newProgress < 100
             }
 
             override fun onReceivedTitle(view: WebView?, title: String?) {
-                pageTitle = title ?: ""
+                BrowserSession.pageTitle = title ?: ""
             }
         }
         val m = context.resources.displayMetrics
