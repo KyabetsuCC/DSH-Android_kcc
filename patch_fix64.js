@@ -18,7 +18,7 @@ else {
   else s = s.replace(a, b);
 
   // 常量放在 companion object 之外的文件末尾之前：找一个稳定的插入点（类的最后一个 } 前不好定位，改用 top-level private const）
-  const c = 'class MainActivity :';
+  const c = '@AndroidEntryPoint\nclass MainActivity :';
   if (!s.includes(c)) { console.log('ANCHOR main class'); bad++; }
   else s = s.replace(c, '/** 启动画面最少显示时长（毫秒）。 */\nprivate const val SPLASH_MIN_MS = 700L\n\n' + c);
 
