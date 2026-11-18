@@ -1,67 +1,44 @@
 // 用法: node patch_fix63.js [repoRoot]
-// 输入栏右侧加「复制页」入口：点开是全屏浮层，装本会话所有回复，逐条复制 / 一键复制 / 手动选段。
+// 复制页入口放会话右上角（标题栏，搜索键旁边），不放输入栏；点开是全屏浮层。
 const fs = require('fs'), path = require('path');
 const root = process.argv[2] || '.';
 let bad = 0;
 function rd(f) { return fs.readFileSync(path.join(root, f), 'utf8'); }
 function wr(f, s) { fs.writeFileSync(path.join(root, f), s); }
 
-// ---------- 1. Composer：新增参数 + 入口按钮 + 浮层 ----------
-const COMPOSER = 'app/src/main/java/io/github/jackwener/dsh/feature/conversation/Composer.kt';
-let s = rd(COMPOSER);
-if (s.includes('copyPageOpen')) console.log('SKIP composer copy entry');
-else {
-  // 1a. 参数
-  const sigA = '    /** A line about the conversation\'s model shown above the editor (its own model is gone, #53); null = none. */\n    modelNotice: String? = null,\n) {';
-  const sigB = '    /** A line about the conversation\'s model shown above the editor (its own model is gone, #53); null = none. */\n    modelNotice: String? = null,\n' +
-    '    /** The conversation\'s turns, for the 复制页 (null hides its entry). */\n    copyTurns: List<io.github.jackwener.dsh.core.session.Turn>? = null,\n) {';
-  if (!s.includes(sigA)) { console.log('ANCHOR composer sig'); bad++; }
-  else s = s.replace(sigA, sigB);
-
-  // 1b. 状态
-  const stA = '    var modeOpen by remember { mutableStateOf(false) }\n';
-  const stB = '    var modeOpen by remember { mutableStateOf(false) }\n    var copyPageOpen by remember { mutableStateOf(false) }\n';
-  if (!s.includes(stA)) { console.log('ANCHOR composer state'); bad++; }
-  else s = s.replace(stA, stB);
-
-  // 1c. 入口按钮：麦克风左边
-  const btnA = '            if (voice != null) io.github.jackwener.dsh.feature.voice.MicButton(voice)\n';
-  const btnB = '            if (copyTurns != null) Box {\n' +
-    '                IconBtn(\n' +
-    '                    R.drawable.ic_copy, { copyPageOpen = true },\n' +
-    '                    size = 32.dp, iconSize = 15.dp, tint = c.labelSecondary,\n' +
-    '                    contentDescription = stringResource(R.string.copy_page_title),\n' +
-    '                )\n' +
-    '            }\n' +
-    '            if (voice != null) io.github.jackwener.dsh.feature.voice.MicButton(voice)\n';
-  if (!s.includes(btnA)) { console.log('ANCHOR composer button'); bad++; }
-  else s = s.replace(btnA, btnB);
-
-  // 1d. 浮层：放在 confirmFull 对话框之前
-  const dlgA = '    if (confirmFull) RiskConfirmDialog(\n';
-  const dlgB = '    if (copyPageOpen && copyTurns != null) CopyPage(copyTurns) { copyPageOpen = false }\n' +
-    '    if (confirmFull) RiskConfirmDialog(\n';
-  if (!s.includes(dlgA)) { console.log('ANCHOR composer dialog'); bad++; }
-  else s = s.replace(dlgA, dlgB);
-
-  wr(COMPOSER, s);
-  console.log('EDIT composer copy entry');
-}
-
-// ---------- 2. ComposerSlot：把 turns 传进去 ----------
 const HOME = 'app/src/main/java/io/github/jackwener/dsh/feature/conversation/HomeScreen.kt';
 let h = rd(HOME);
-if (h.includes('copyTurns = conv.turns')) console.log('SKIP home copyTurns');
+if (h.includes('copyPageOpen')) console.log('SKIP home copy entry');
 else {
-  const a = '            voice = voice,\n        )\n    }\n}';
-  const b = '            voice = voice,\n            copyTurns = conv.turns,\n        )\n    }\n}';
-  if (!h.includes(a)) { console.log('ANCHOR home voice'); bad++; }
+  // 1) 状态：跟着 termOpen 一起声明
+  const a = '        if (termOpen) io.github.jackwener.dsh.feature.settings.TerminalOverlay(onClose = { termOpen = false })\n';
+  const b = '        if (copyPageOpen) CopyPage(conv.turns) { copyPageOpen = false }\n' + a;
+  if (!h.includes(a)) { console.log('ANCHOR home term overlay'); bad++; }
   else h = h.replace(a, b);
+
+  // 2) 标题栏入口：搜索键左边
+  const c = '            if (!empty) IconBtn(R.drawable.dsw_search_outline, { searchOpen = true }, size = 40.dp, iconSize = 18.dp, tint = c.labelSecondary,\n';
+  const d = '            if (!empty) IconBtn(R.drawable.ic_copy, { copyPageOpen = true }, size = 40.dp, iconSize = 18.dp, tint = c.labelSecondary,\n' +
+    '                contentDescription = stringResource(R.string.copy_page_title))\n' + c;
+  if (!h.includes(c)) { console.log('ANCHOR home search icon'); bad++; }
+  else h = h.replace(c, d);
+
   wr(HOME, h);
-  console.log('EDIT home copyTurns');
+  console.log('EDIT home copy entry');
 }
 
-// ---------- 3. 文案 ----------
+// 3) 状态变量声明（和 termOpen 同一处）
+let h2 = rd(HOME);
+if (h2.includes('var copyPageOpen by remember')) console.log('SKIP home state');
+else {
+  const m = /( *)var termOpen by remember \{ mutableStateOf\(false\) \}\n/.exec(h2);
+  if (!m) { console.log('ANCHOR home termOpen state'); bad++; }
+  else h2 = h2.replace(m[0], m[0] + m[1] + 'var copyPageOpen by remember { mutableStateOf(false) }\n');
+  wr(HOME, h2);
+  console.log('EDIT home state');
+}
+
+// 4) 文案
 const Q = String.fromCharCode(34);
 const STR = [
   ['app/src/main/res/values/strings.xml', [
@@ -71,7 +48,8 @@ const STR = [
     ['copy_page_empty', '这个会话还没有可复制的内容'],
     ['copy_page_item', '第 %1$d 条回复'],
     ['copy_page_item_code', '第 %1$d 条回复 · 代码 %2$d'],
-    ['copy_page_copy_all', '复制全部'],
+    ['copy_page_newest', '最新的在上面'],
+    ['copy_page_oldest', '最早的上面'],
   ]],
   ['app/src/main/res/values-en/strings.xml', [
     ['copy_page_title', 'Copy'],
@@ -80,7 +58,8 @@ const STR = [
     ['copy_page_empty', 'Nothing to copy in this conversation yet'],
     ['copy_page_item', 'Reply %1$d'],
     ['copy_page_item_code', 'Reply %1$d · code %2$d'],
-    ['copy_page_copy_all', 'Copy all'],
+    ['copy_page_newest', 'Newest first'],
+    ['copy_page_oldest', 'Oldest first'],
   ]],
 ];
 STR.forEach(function (pair) {
