@@ -95,7 +95,7 @@ else {
   const anchorHelper = '    private fun JsonObject.only(vararg keys: String)';
   const helper = [
     '    /** One scroll of the current screen: an on-screen scrollable node if there is one, else a swipe in the middle. */',
-    '    private fun scrollOnce(d: Int, dir: String) {',
+    '    private suspend fun scrollOnce(d: Int, dir: String) {',
     '        val snap = svc().snapshot(d)',
     '        val i = snap.elements.indexOfFirst { it.flags.contains("scroll") && !it.system }',
     '        val node = snap.nodes.getOrNull(i)',
