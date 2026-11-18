@@ -231,6 +231,7 @@ jobs:
           node patch_fix68.js
           node patch_fix69.js
           node patch_fix70.js
+          node patch_fix71.js
           node patch_fix62.js
           grep -n "val gap = dp" app/src/main/java/io/github/jackwener/dsh/service/FloatingBallService.kt
           grep -c "tableComponent" app/src/main/java/io/github/jackwener/dsh/core/designsystem/Content.kt
