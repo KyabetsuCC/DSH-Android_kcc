@@ -147,7 +147,7 @@ jobs:
           cp image_viewer.kt app/src/main/java/io/github/jackwener/dsh/feature/conversation/ImageViewer.kt
           node patch_fix17.js
           cp terminal.kt app/src/main/java/io/github/jackwener/dsh/feature/settings/TerminalPage.kt
-          cp ic_term.xml ic_copy.xml ic_plus.xml ic_close.xml ic_enter_outline.xml ic_folder.xml ic_folder_plus.xml app/src/main/res/drawable/
+          cp ic_term.xml ic_copy.xml ic_plus.xml ic_close.xml ic_enter_outline.xml ic_folder.xml ic_folder_plus.xml ic_note.xml app/src/main/res/drawable/
           node patch_fix22.js
           cp backup_page.kt app/src/main/java/io/github/jackwener/dsh/feature/settings/BackupPage.kt
           cp folders.kt app/src/main/java/io/github/jackwener/dsh/feature/conversation/FolderStore.kt
@@ -177,11 +177,14 @@ jobs:
           node patch_fix47.js
           cp drawer_stats.kt app/src/main/java/io/github/jackwener/dsh/feature/conversation/DrawerStats.kt
           node patch_fix48.js
+          cp snippets.kt app/src/main/java/io/github/jackwener/dsh/feature/conversation/Snippets.kt
           node patch_fix49.js
           node patch_fix50.js
           node patch_fix51.js
           node patch_fix52.js
           node patch_fix53.js
+          node patch_fix54.js
+          node patch_fix55.js
           grep -c "session/cancel" app/src/main/java/io/github/jackwener/dsh/core/session/SessionStore.kt
           grep -c "usage_range_all" app/src/main/res/values/strings.xml
           grep -c "usage_models" app/src/main/res/values/strings.xml
