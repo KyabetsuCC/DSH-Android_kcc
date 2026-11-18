@@ -12,8 +12,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -31,7 +33,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
@@ -44,12 +48,18 @@ import io.github.jackwener.dsh.core.designsystem.IconBtn
 import io.github.jackwener.dsh.core.designsystem.Radius
 import io.github.jackwener.dsh.core.designsystem.pressable
 
-/** Sites offered on the blank page; the user can also just type into the address bar. */
-private val QUICK_LINKS = listOf(
-    "Bing" to "https://www.bing.com",
-    "百度" to "https://www.baidu.com",
-    "DeepSeek" to "https://chat.deepseek.com",
-    "GitHub" to "https://github.com",
+/** One shortcut on the start page: a label, the address it opens and the glyph drawn in the tile. */
+private data class Shortcut(val label: String, val url: String, val glyph: String)
+
+private val SHORTCUTS = listOf(
+    Shortcut("百度", "https://www.baidu.com", "百"),
+    Shortcut("Bing", "https://www.bing.com", "B"),
+    Shortcut("DeepSeek", "https://chat.deepseek.com", "D"),
+    Shortcut("GitHub", "https://github.com", "G"),
+    Shortcut("知乎", "https://www.zhihu.com", "知"),
+    Shortcut("B站", "https://m.bilibili.com", "B"),
+    Shortcut("微博", "https://m.weibo.cn", "微"),
+    Shortcut("淘宝", "https://m.taobao.com", "淘"),
 )
 
 /**
@@ -66,9 +76,14 @@ fun BrowserPage(onClose: () -> Unit) {
     val canBack = BrowserSession.canBack
     val canForward = BrowserSession.canForward
     val desktop = BrowserSession.desktop
-    var typing by remember { mutableStateOf("") }
-    var edited by remember { mutableStateOf(false) }
-    val shown = if (edited) typing else address
+    val home = BrowserSession.home
+    // Null while the bar mirrors the page address; non-null once the user starts typing.
+    var typing by remember { mutableStateOf<TextFieldValue?>(null) }
+    val value = typing ?: TextFieldValue(address, TextRange(address.length))
+    val go: (String) -> Unit = { text ->
+        typing = null
+        if (text.isNotBlank()) BrowserSession.web(context).loadUrl(BrowserSession.normalize(text))
+    }
 
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Column(
@@ -76,35 +91,20 @@ fun BrowserPage(onClose: () -> Unit) {
                 .statusBarsPadding().navigationBarsPadding(),
         ) {
             Row(
-                Modifier.fillMaxWidth().height(52.dp).padding(start = 6.dp, end = 6.dp),
+                Modifier.fillMaxWidth().height(46.dp).padding(start = 6.dp, end = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconBtn(
-                    R.drawable.ic_close, onClose, size = 34.dp, iconSize = 14.dp,
-                    tint = Dsh.colors.labelSecondary, contentDescription = stringResource(R.string.browser_close),
+                Text(
+                    (if (home) "" else title).ifBlank { stringResource(R.string.browser_title) },
+                    Modifier.weight(1f),
+                    style = DshType.s14m,
+                    color = Dsh.colors.labelPrimary,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 )
-                Box(
-                    Modifier.weight(1f).height(36.dp).clip(Radius.sm)
-                        .background(Dsh.colors.bgLayer2).padding(start = 10.dp, end = 10.dp),
-                    contentAlignment = Alignment.CenterStart,
-                ) {
-                    BasicTextField(
-                        value = shown,
-                        onValueChange = { typing = it; edited = true },
-                        singleLine = true,
-                        textStyle = DshType.s14.copy(color = Dsh.colors.labelPrimary),
-                        cursorBrush = SolidColor(Dsh.colors.brandPrimary),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
-                        keyboardActions = KeyboardActions(onGo = {
-                            BrowserSession.web(context).loadUrl(BrowserSession.normalize(typing.ifBlank { shown }))
-                            edited = false
-                        }),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
                 IconBtn(
-                    R.drawable.dsw_refresh_outline, { BrowserSession.reload() }, size = 34.dp, iconSize = 15.dp,
-                    tint = Dsh.colors.labelSecondary, contentDescription = stringResource(R.string.browser_reload),
+                    R.drawable.ic_close, onClose, size = 34.dp, iconSize = 16.dp,
+                    tint = Dsh.colors.labelSecondary, contentDescription = stringResource(R.string.browser_close),
                 )
             }
             if (loading) {
@@ -114,66 +114,133 @@ fun BrowserPage(onClose: () -> Unit) {
                     color = Dsh.colors.brandPrimary,
                     trackColor = Dsh.colors.bgLayer2,
                 )
-            } else {
-                Spacer(Modifier.height(2.dp))
-            }
-            Row(
-                Modifier.fillMaxWidth().height(40.dp).padding(horizontal = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconBtn(
-                    R.drawable.dsw_chevron_left_outline, { BrowserSession.back() }, size = 32.dp, iconSize = 15.dp,
-                    tint = if (canBack) Dsh.colors.labelSecondary else Dsh.colors.labelDimmed,
-                    enabled = canBack, contentDescription = stringResource(R.string.browser_back),
-                )
-                IconBtn(
-                    R.drawable.dsw_chevron_right_outline, { BrowserSession.forward() }, size = 32.dp, iconSize = 15.dp,
-                    tint = if (canForward) Dsh.colors.labelSecondary else Dsh.colors.labelDimmed,
-                    enabled = canForward, contentDescription = stringResource(R.string.browser_forward),
-                )
-                IconBtn(
-                    R.drawable.dsw_globe_outline, { BrowserSession.setDesktop(context, !desktop) }, size = 32.dp,
-                    iconSize = 15.dp, tint = if (desktop) Dsh.colors.brandPrimary else Dsh.colors.labelTertiary,
-                    contentDescription = stringResource(R.string.browser_desktop),
-                )
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    title.ifBlank { shown },
-                    Modifier.weight(1f),
-                    style = DshType.xxs12,
-                    color = Dsh.colors.labelTertiary,
-                    maxLines = 1,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                )
             }
             Box(Modifier.fillMaxWidth().weight(1f)) {
                 AndroidView(
                     factory = { c -> FrameLayout(c).also { BrowserSession.attach(c, it) } },
                     modifier = Modifier.fillMaxSize(),
                 )
-                if (address.isBlank()) {
+                if (home) {
                     Column(
-                        Modifier.fillMaxSize().background(Dsh.colors.bgBase).padding(horizontal = 24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center,
+                        Modifier.fillMaxSize().background(Dsh.colors.bgBase).padding(horizontal = 20.dp),
                     ) {
-                        Text(stringResource(R.string.browser_home_hint), style = DshType.s14, color = Dsh.colors.labelTertiary)
+                        Spacer(Modifier.height(28.dp))
+                        Text(
+                            stringResource(R.string.browser_home_hint),
+                            style = DshType.s14,
+                            color = Dsh.colors.labelTertiary,
+                        )
                         Spacer(Modifier.height(20.dp))
-                        for ((label, url) in QUICK_LINKS) {
-                            Text(
-                                label,
-                                Modifier.fillMaxWidth().clip(Radius.md).background(Dsh.colors.bgLayer1)
-                                    .pressable({ BrowserSession.web(context).loadUrl(url) }, Radius.md)
-                                    .padding(horizontal = 16.dp, vertical = 13.dp),
-                                style = DshType.s14,
-                                color = Dsh.colors.labelPrimary,
-                            )
-                            Spacer(Modifier.height(8.dp))
+                        for (row in SHORTCUTS.chunked(4)) {
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                for (s in row) {
+                                    ShortcutTile(s, Modifier.weight(1f)) { go(s.url) }
+                                }
+                                repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
+                            }
+                            Spacer(Modifier.height(14.dp))
                         }
                     }
+                }
+            }
+            Column(
+                Modifier.fillMaxWidth().background(Dsh.colors.bgLayer1)
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+            ) {
+                Row(
+                    Modifier.fillMaxWidth().height(42.dp).clip(Radius.xl)
+                        .background(Dsh.colors.bgLayer2)
+                        .padding(start = 12.dp, end = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconBtn(
+                        R.drawable.dsw_search_outline, {}, size = 28.dp, iconSize = 15.dp,
+                        tint = Dsh.colors.labelTertiary, contentDescription = null,
+                    )
+                    Box(Modifier.weight(1f)) {
+                        BasicTextField(
+                            value = value,
+                            onValueChange = { typing = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            textStyle = DshType.s14.copy(color = Dsh.colors.labelPrimary),
+                            singleLine = true,
+                            cursorBrush = SolidColor(Dsh.colors.labelPrimary),
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
+                            keyboardActions = KeyboardActions(onGo = { go(value.text) }),
+                        )
+                        if (value.text.isBlank()) {
+                            Text(
+                                stringResource(R.string.browser_search_hint),
+                                style = DshType.s14,
+                                color = Dsh.colors.labelTertiary,
+                            )
+                        }
+                    }
+                    if (value.text.isNotBlank()) {
+                        IconBtn(
+                            R.drawable.ic_close, { typing = null }, size = 28.dp, iconSize = 13.dp,
+                            tint = Dsh.colors.labelTertiary, contentDescription = null,
+                        )
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    IconBtn(
+                        R.drawable.dsw_chevron_left_outline, { BrowserSession.back() }, size = 36.dp,
+                        iconSize = 17.dp, tint = if (canBack) Dsh.colors.labelSecondary else Dsh.colors.labelDimmed,
+                        enabled = canBack, contentDescription = stringResource(R.string.browser_back),
+                    )
+                    IconBtn(
+                        R.drawable.dsw_chevron_right_outline, { BrowserSession.forward() }, size = 36.dp,
+                        iconSize = 17.dp, tint = if (canForward) Dsh.colors.labelSecondary else Dsh.colors.labelDimmed,
+                        enabled = canForward, contentDescription = stringResource(R.string.browser_forward),
+                    )
+                    IconBtn(
+                        R.drawable.ic_home, { BrowserSession.goHome() }, size = 36.dp, iconSize = 17.dp,
+                        tint = if (home) Dsh.colors.brandPrimary else Dsh.colors.labelSecondary,
+                        contentDescription = stringResource(R.string.browser_home),
+                    )
+                    IconBtn(
+                        R.drawable.dsw_refresh_outline, { BrowserSession.reload() }, size = 36.dp,
+                        iconSize = 16.dp, tint = Dsh.colors.labelSecondary,
+                        contentDescription = stringResource(R.string.browser_reload),
+                    )
+                    Spacer(Modifier.weight(1f))
+                    IconBtn(
+                        R.drawable.dsw_globe_outline, { BrowserSession.setDesktop(context, !desktop) },
+                        size = 36.dp, iconSize = 17.dp,
+                        tint = if (desktop) Dsh.colors.brandPrimary else Dsh.colors.labelTertiary,
+                        contentDescription = stringResource(R.string.browser_desktop),
+                    )
                 }
             }
         }
     }
     DisposableEffect(Unit) { onDispose { BrowserSession.detach() } }
+}
+
+@Composable
+private fun ShortcutTile(s: Shortcut, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Column(
+        modifier.clip(Radius.md).pressable(onClick, Radius.md).padding(vertical = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            Modifier.size(52.dp).clip(CircleShape).background(Dsh.colors.bgLayer2),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(s.glyph, style = DshType.s14m, color = Dsh.colors.labelPrimary)
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            s.label,
+            style = DshType.xxs12,
+            color = Dsh.colors.labelSecondary,
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+        )
+    }
 }
