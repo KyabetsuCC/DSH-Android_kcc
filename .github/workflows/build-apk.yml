@@ -227,6 +227,7 @@ jobs:
           cp browser_session.kt app/src/main/java/io/github/jackwener/dsh/core/capability/BrowserSession.kt
           cp browser_page.kt app/src/main/java/io/github/jackwener/dsh/feature/browser/BrowserPage.kt
           node patch_fix67.js
+          node patch_fix68.js
           node patch_fix62.js
           grep -n "val gap = dp" app/src/main/java/io/github/jackwener/dsh/service/FloatingBallService.kt
           grep -c "tableComponent" app/src/main/java/io/github/jackwener/dsh/core/designsystem/Content.kt
@@ -246,6 +247,8 @@ jobs:
           grep -c browserOpen app/src/main/java/io/github/jackwener/dsh/feature/conversation/HomeScreen.kt
           grep -c "BrowserSession" app/src/main/java/io/github/jackwener/dsh/core/capability/tools/BrowserTools.kt
           grep -c browser_title app/src/main/res/values/strings.xml
+          grep -c browser-globe-always app/src/main/java/io/github/jackwener/dsh/feature/conversation/HomeScreen.kt
+          grep -c browser_home_hint app/src/main/res/values/strings.xml
           grep -c copy_page_title app/src/main/res/values/strings.xml
 
       - name: 检查更新指向自己的仓库 + 版本号
