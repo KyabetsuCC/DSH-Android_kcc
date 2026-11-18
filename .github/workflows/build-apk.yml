@@ -177,6 +177,8 @@ jobs:
           node patch_fix47.js
           cp drawer_stats.kt app/src/main/java/io/github/jackwener/dsh/feature/conversation/DrawerStats.kt
           node patch_fix48.js
+          node patch_fix49.js
+          node patch_fix50.js
           grep -c "session/cancel" app/src/main/java/io/github/jackwener/dsh/core/session/SessionStore.kt
           grep -c "usage_range_all" app/src/main/res/values/strings.xml
           grep -c "usage_models" app/src/main/res/values/strings.xml
