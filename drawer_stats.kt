@@ -85,7 +85,9 @@ fun DrawerStats(vm: DrawerStatsViewModel = hiltViewModel()) {
     )
     val cost = Pricing.cost(usage)
     val state = remember { peakState(ZonedDateTime.now()) }
-    val remain = "${state.remain.toHours()}h ${state.remain.toMinutes() % 60}m"
+    val rh = state.remain.toHours()
+    val rm = state.remain.toMinutes() % 60
+    val remain = if (rh > 0) "${rh}h ${rm}m" else "${rm}m"
     Column(Modifier.fillMaxWidth().padding(horizontal = 2.dp, vertical = 4.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
             Column(Modifier.weight(1f)) {
