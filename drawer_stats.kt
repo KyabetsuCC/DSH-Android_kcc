@@ -114,10 +114,10 @@ fun DrawerStats(vm: DrawerStatsViewModel = hiltViewModel()) {
         Canvas(Modifier.fillMaxWidth().height(8.dp)) {
             val h = size.height
             val r = CornerRadius(h / 2f, h / 2f)
-            drawRoundRect(color = c.borderL2, cornerRadius = r)
+            drawRoundRect(color = c.business.copy(alpha = 0.45f), cornerRadius = r)
             state.segments.forEach { seg ->
                 drawRoundRect(
-                    color = c.warn.copy(alpha = 0.55f),
+                    color = c.warn,
                     topLeft = Offset(size.width * (seg.first / 1440f), 0f),
                     size = Size(size.width * ((seg.last + 1 - seg.first) / 1440f), h),
                     cornerRadius = CornerRadius(2f, 2f),
