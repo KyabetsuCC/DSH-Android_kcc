@@ -197,6 +197,7 @@ jobs:
           node patch_fix57.js
           node patch_fix58.js
           node patch_fix59.js
+          node patch_fix60.js
           grep -c "session/cancel" app/src/main/java/io/github/jackwener/dsh/core/session/SessionStore.kt
           grep -c "usage_range_all" app/src/main/res/values/strings.xml
           grep -c "usage_models" app/src/main/res/values/strings.xml
@@ -209,6 +210,7 @@ jobs:
           grep -c "stop_others_body" app/src/main/java/io/github/jackwener/dsh/feature/conversation/HomeScreen.kt
           grep -c "set_cost_currency" app/src/main/java/io/github/jackwener/dsh/feature/settings/SettingsScreen.kt
           grep -c "set_ui_group" app/src/main/java/io/github/jackwener/dsh/feature/settings/SettingsScreen.kt
+          grep -c "ui-card-paired" app/src/main/java/io/github/jackwener/dsh/feature/settings/SettingsScreen.kt
           grep -c "Pricing.format(it)" app/src/main/java/io/github/jackwener/dsh/feature/conversation/Stream.kt
           grep -c "var tv by mutableStateOf(TextFieldValue" app/src/main/java/io/github/jackwener/dsh/feature/conversation/Composer.kt
           node patch_fix18.js
