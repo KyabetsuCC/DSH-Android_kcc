@@ -234,7 +234,7 @@ jobs:
           grep -c "lastPaneHeight" app/src/main/java/io/github/jackwener/dsh/feature/conversation/Stream.kt
           test ! -d app/src/main/res/values-ru
           grep -c locale app/src/main/res/xml/locales_config.xml
-          grep -c copyTurns app/src/main/java/io/github/jackwener/dsh/feature/conversation/Composer.kt
+          grep -c copyPageOpen app/src/main/java/io/github/jackwener/dsh/feature/conversation/HomeScreen.kt
           grep -c SPLASH_MIN_MS app/src/main/java/io/github/jackwener/dsh/MainActivity.kt
           grep -c codeCopyHit app/src/main/java/io/github/jackwener/dsh/core/designsystem/Content.kt
           grep -c copy_page_title app/src/main/res/values/strings.xml
