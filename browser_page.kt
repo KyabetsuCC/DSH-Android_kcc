@@ -2,6 +2,7 @@ package io.github.jackwener.dsh.feature.browser
 
 import android.widget.FrameLayout
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -41,6 +42,15 @@ import io.github.jackwener.dsh.core.designsystem.Dsh
 import io.github.jackwener.dsh.core.designsystem.DshType
 import io.github.jackwener.dsh.core.designsystem.IconBtn
 import io.github.jackwener.dsh.core.designsystem.Radius
+import io.github.jackwener.dsh.core.designsystem.pressable
+
+/** Sites offered on the blank page; the user can also just type into the address bar. */
+private val QUICK_LINKS = listOf(
+    "Bing" to "https://www.bing.com",
+    "百度" to "https://www.baidu.com",
+    "DeepSeek" to "https://chat.deepseek.com",
+    "GitHub" to "https://github.com",
+)
 
 /**
  * The visible browser: the same WebView the browser tools drive, on screen, so the user can watch the
@@ -136,10 +146,33 @@ fun BrowserPage(onClose: () -> Unit) {
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 )
             }
-            AndroidView(
-                factory = { c -> FrameLayout(c).also { BrowserSession.attach(c, it) } },
-                modifier = Modifier.fillMaxWidth().weight(1f),
-            )
+            Box(Modifier.fillMaxWidth().weight(1f)) {
+                AndroidView(
+                    factory = { c -> FrameLayout(c).also { BrowserSession.attach(c, it) } },
+                    modifier = Modifier.fillMaxSize(),
+                )
+                if (address.isBlank()) {
+                    Column(
+                        Modifier.fillMaxSize().background(Dsh.colors.bgBase).padding(horizontal = 24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                    ) {
+                        Text(stringResource(R.string.browser_home_hint), style = DshType.s14, color = Dsh.colors.labelTertiary)
+                        Spacer(Modifier.height(20.dp))
+                        for ((label, url) in QUICK_LINKS) {
+                            Text(
+                                label,
+                                Modifier.fillMaxWidth().clip(Radius.md).background(Dsh.colors.bgLayer1)
+                                    .pressable({ BrowserSession.web(context).loadUrl(url) }, Radius.md)
+                                    .padding(horizontal = 16.dp, vertical = 13.dp),
+                                style = DshType.s14,
+                                color = Dsh.colors.labelPrimary,
+                            )
+                            Spacer(Modifier.height(8.dp))
+                        }
+                    }
+                }
+            }
         }
     }
     DisposableEffect(Unit) { onDispose { BrowserSession.detach() } }
