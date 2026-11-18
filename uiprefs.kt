@@ -16,4 +16,7 @@ object UiPrefs {
 
     /** 对话区左右留白（dp）：越大越窄。 */
     var chatPadding by mutableIntStateOf(16)
+
+    /** 沉浸模式：隐藏状态栏，内容顶到屏幕最上沿（从顶部下滑仍可拉出通知栏）。 */
+    var immersive by mutableStateOf(false)
 }
