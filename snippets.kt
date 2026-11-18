@@ -4,6 +4,7 @@ import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,13 +21,20 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -96,6 +104,15 @@ object SnippetStore {
     }
 
     fun remove(c: Context, id: String) = save(c, all(c).filter { it.id != id })
+
+    /** Move [id] to [to] (a list index) and persist; used by long-press drag in the overlay. */
+    fun move(c: Context, id: String, to: Int) {
+        val list = all(c).toMutableList()
+        val from = list.indexOfFirst { it.id == id }
+        if (from < 0 || to < 0 || to >= list.size || from == to) return
+        list.add(to, list.removeAt(from))
+        save(c, list)
+    }
 }
 
 @Composable
@@ -108,6 +125,10 @@ fun SnippetOverlay(onClose: () -> Unit) {
     var editing by remember { mutableStateOf<Snippet?>(null) }
     var deleting by remember { mutableStateOf<Snippet?>(null) }
     var menuId by remember { mutableStateOf<String?>(null) }
+    var dragId by remember { mutableStateOf<String?>(null) }
+    var dragY by remember { mutableFloatStateOf(0f) }
+    var hoverId by remember { mutableStateOf<String?>(null) }
+    val itemRanges = remember { mutableStateMapOf<String, ClosedFloatingPointRange<Float>>() }
 
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Column(Modifier.fillMaxSize().background(c.bgBase).statusBarsPadding().navigationBarsPadding().padding(horizontal = 16.dp)) {
@@ -124,9 +145,42 @@ fun SnippetOverlay(onClose: () -> Unit) {
             } else {
                 Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     items.forEach { s ->
-                        Box {
+                        val dragging = dragId == s.id
+                        val hovered = hoverId == s.id && dragId != null && !dragging
+                        Box(
+                            Modifier
+                                .onGloballyPositioned { itemRanges[s.id] = it.boundsInRoot().let { b -> b.top..b.bottom } }
+                                .graphicsLayer {
+                                    translationY = if (dragging) dragY else 0f
+                                    alpha = if (dragging) 0.92f else 1f
+                                    shadowElevation = if (dragging) 8.dp.toPx() else 0f
+                                }
+                                .pointerInput(s.id) {
+                                    detectDragGesturesAfterLongPress(
+                                        onDragStart = { dragId = s.id; dragY = 0f; hoverId = null },
+                                        onDrag = { change, amount ->
+                                            change.consume()
+                                            dragY += amount.y
+                                            val here = itemRanges[s.id] ?: return@detectDragGesturesAfterLongPress
+                                            val y = here.start + dragY
+                                            hoverId = itemRanges.entries.firstOrNull { y >= it.value.start && y <= it.value.endInclusive && it.key != s.id }?.key
+                                        },
+                                        onDragEnd = {
+                                            val from = dragId
+                                            val to = hoverId
+                                            if (from != null && to != null && to != from) {
+                                                val list = SnippetStore.all(ctx)
+                                                SnippetStore.move(ctx, from, list.indexOfFirst { it.id == to })
+                                            }
+                                            dragId = null; dragY = 0f; hoverId = null
+                                        },
+                                        onDragCancel = { dragId = null; dragY = 0f; hoverId = null },
+                                    )
+                                },
+                        ) {
                             Column(
-                                Modifier.fillMaxWidth().clip(Radius.md).background(c.bgLayer2)
+                                Modifier.fillMaxWidth().clip(Radius.md)
+                                    .background(if (hovered) c.hoverSolid else c.bgLayer2)
                                     .clickable {
                                         copyText(ctx, s.text)
                                         Toast.makeText(ctx, ctx.getString(R.string.snippet_copied), Toast.LENGTH_SHORT).show()
