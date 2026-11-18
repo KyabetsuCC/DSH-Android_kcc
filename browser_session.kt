@@ -3,147 +3,234 @@ package io.github.jackwener.dsh.core.capability
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
-import android.view.View
 import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.WebChromeClient
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
-/**
- * The one in-app WebView. The browser tools drive it headlessly, and the browser page shows the very
- * same instance, so the user watches exactly what the agent does and can take over at any moment.
- *
- * Cookies, DOM storage and the cache are persisted the normal WebView way, so a page the user signed
- * in to stays signed in for the agent as well.
- */
-object BrowserSession {
-    /** Live state the browser page renders. Written on the WebView (main) thread only. */
+/** One open tab: its own WebView, its own history, and the Compose state its strip entry shows. */
+class BrowserTab internal constructor(val key: Long) {
     var address by mutableStateOf("")
     var pageTitle by mutableStateOf("")
     var loading by mutableStateOf(false)
     var progress by mutableIntStateOf(0)
     var canBack by mutableStateOf(false)
     var canForward by mutableStateOf(false)
-    var desktop by mutableStateOf(false)
 
-    /** True while the blank start page (address bar + quick links) is what the user should see. */
+    /** True while the start page (search field + shortcuts) is what this tab shows. */
     var home by mutableStateOf(true)
+}
 
-    private var webView: WebView? = null
+/**
+ * The in-app browser: one session shared by the agent's browser tools and the on-screen page, so the
+ * user can watch the agent work, sign in first, and open extra tabs for themselves. Cookie jars are the
+ * WebView's own, so logins survive both the tools and the user.
+ */
+object BrowserSession {
+    const val DESKTOP_UA =
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) " +
+            "Chrome/126.0.0.0 Safari/537.36"
+
+    var desktop by mutableStateOf(false)
+        private set
+
+    val tabs = mutableStateListOf<BrowserTab>()
+
+    var activeIndex by mutableIntStateOf(0)
+        private set
+
+    val active: BrowserTab? get() = tabs.getOrNull(activeIndex)
+
+    private val views = HashMap<Long, WebView>()
+    private var seq = 0L
+    private var container: ViewGroup? = null
+    private var mobileUa: String? = null
+
     private var onStarted: () -> Unit = {}
     private var onFinished: () -> Unit = {}
 
-    private const val DESKTOP_UA =
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
-
-    /** The browser tools install their navigation wait here. */
     fun hooks(started: () -> Unit, finished: () -> Unit) {
         onStarted = started
         onFinished = finished
     }
 
+    /** Opens a tab (and makes it the active one). [url] null shows the start page. */
+    fun newTab(context: Context, url: String? = null): BrowserTab {
+        val t = BrowserTab(++seq)
+        tabs.add(t)
+        activeIndex = tabs.lastIndex
+        val w = viewOf(context, t)
+        container?.let { attachView(it) }
+        if (!url.isNullOrBlank()) w.loadUrl(url)
+        return t
+    }
+
+    fun select(index: Int) {
+        if (index !in tabs.indices) return
+        activeIndex = index
+        container?.let { attachView(it) }
+    }
+
+    fun closeTab(index: Int) {
+        val t = tabs.getOrNull(index) ?: return
+        container?.let { p -> views[t.key]?.let { p.removeView(it) } }
+        views.remove(t.key)?.let { w ->
+            runCatching { w.stopLoading() }
+            runCatching { w.destroy() }
+        }
+        tabs.removeAt(index)
+        activeIndex = if (tabs.isEmpty()) 0 else activeIndex.coerceIn(0, tabs.lastIndex)
+        container?.let { attachView(it) }
+    }
+
+    fun closeAll() {
+        val p = container
+        for (t in tabs.toList()) {
+            p?.let { c -> views[t.key]?.let { c.removeView(it) } }
+            views.remove(t.key)?.let { w ->
+                runCatching { w.stopLoading() }
+                runCatching { w.destroy() }
+            }
+        }
+        tabs.clear()
+        activeIndex = 0
+    }
+
+    /** The active tab's WebView — what the browser tools drive. */
+    fun web(context: Context): WebView {
+        val t = active ?: newTab(context)
+        return views[t.key] ?: viewOf(context, t)
+    }
+
+    /** Hands the active tab to [parent] so the user sees it; the tools keep driving the same instance. */
+    fun attach(context: Context, parent: ViewGroup) {
+        container = parent
+        val t = active ?: newTab(context)
+        viewOf(context, t)
+        attachView(parent)
+    }
+
+    fun detach() {
+        container?.removeAllViews()
+        container = null
+    }
+
+    fun back() { active?.let { views[it.key]?.goBack() } }
+    fun forward() { active?.let { views[it.key]?.goForward() } }
+    fun reload() { active?.let { views[it.key]?.reload() } }
+    fun stop() { active?.let { views[it.key]?.stopLoading() } }
+
+    fun url(): String {
+        val t = active ?: return ""
+        return views[t.key]?.url ?: t.address
+    }
+
+    /** Back to the start page, without loading anything over the network. */
+    fun goHome() {
+        val t = active ?: return
+        views[t.key]?.let {
+            runCatching { it.stopLoading() }
+            runCatching { it.loadUrl("about:blank") }
+        }
+        t.home = true
+        t.address = ""
+        t.pageTitle = ""
+        t.canBack = false
+        t.canForward = false
+    }
+
+    fun setDesktop(context: Context, on: Boolean) {
+        desktop = on
+        val t = active ?: return
+        val w = views[t.key] ?: return
+        w.settings.userAgentString = if (on) DESKTOP_UA else (mobileUa ?: w.settings.userAgentString)
+        w.reload()
+    }
+
+    /** Types a bare address into something loadable; anything else becomes a search. */
+    fun normalize(text: String): String {
+        val s = text.trim()
+        if (s.isEmpty()) return "about:blank"
+        if (s.startsWith("http://") || s.startsWith("https://") || s.startsWith("file:") ||
+            s.startsWith("about:") || s.startsWith("data:")
+        ) return s
+        val looksLikeHost = s.contains('.') && !s.contains(' ') &&
+            s.substringBefore('/').substringAfterLast('.').isNotEmpty()
+        return if (looksLikeHost) "https://$s"
+        else "https://www.bing.com/search?q=" + android.net.Uri.encode(s)
+    }
+
+    private fun attachView(parent: ViewGroup) {
+        val t = active ?: return
+        for (v in views.values) if (v.parent === parent) parent.removeView(v)
+        val w = views[t.key] ?: return
+        if (w.parent == null) {
+            parent.addView(w, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        }
+    }
+
     @SuppressLint("SetJavaScriptEnabled")
-    fun web(context: Context): WebView = webView ?: WebView(context).apply {
-        settings.javaScriptEnabled = true
-        settings.domStorageEnabled = true
-        settings.databaseEnabled = true
-        settings.userAgentString = settings.userAgentString.replace("; wv", "")
-        val cm = CookieManager.getInstance()
-        cm.setAcceptCookie(true)
-        cm.setAcceptThirdPartyCookies(this, true)
-        webViewClient = object : WebViewClient() {
+    private fun viewOf(context: Context, t: BrowserTab): WebView {
+        views[t.key]?.let { return it }
+        val w = WebView(context)
+        val base = w.settings.userAgentString.replace("; wv", "")
+        mobileUa = mobileUa ?: base
+        w.settings.javaScriptEnabled = true
+        w.settings.domStorageEnabled = true
+        w.settings.databaseEnabled = true
+        w.settings.useWideViewPort = true
+        w.settings.loadWithOverviewMode = true
+        w.settings.cacheMode = WebSettings.LOAD_DEFAULT
+        w.settings.userAgentString = if (desktop) DESKTOP_UA else base
+        CookieManager.getInstance().apply {
+            setAcceptCookie(true)
+            setAcceptThirdPartyCookies(w, true)
+        }
+        w.webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
-                BrowserSession.loading = true
-                BrowserSession.progress = 0
-                BrowserSession.address = url ?: BrowserSession.address
-                if (!url.isNullOrBlank() && url != "about:blank") BrowserSession.home = false
+                t.loading = true
+                t.progress = 0
+                if (!url.isNullOrBlank() && url != "about:blank") {
+                    t.address = url
+                    t.home = false
+                }
                 runCatching { onStarted() }
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
-                BrowserSession.loading = false
-                BrowserSession.address = view?.url ?: url ?: BrowserSession.address
-                BrowserSession.canBack = view?.canGoBack() == true
-                BrowserSession.canForward = view?.canGoForward() == true
+                t.loading = false
+                val u = view?.url ?: url
+                if (!u.isNullOrBlank() && u != "about:blank") t.address = u
+                t.canBack = view?.canGoBack() == true
+                t.canForward = view?.canGoForward() == true
                 runCatching { CookieManager.getInstance().flush() }
                 runCatching { onFinished() }
             }
         }
-        webChromeClient = object : WebChromeClient() {
+        w.webChromeClient = object : WebChromeClient() {
             override fun onProgressChanged(view: WebView?, newProgress: Int) {
-                BrowserSession.progress = newProgress
-                BrowserSession.loading = newProgress < 100
+                t.progress = newProgress
+                t.loading = newProgress < 100
             }
 
             override fun onReceivedTitle(view: WebView?, title: String?) {
-                BrowserSession.pageTitle = title ?: ""
+                t.pageTitle = title ?: ""
             }
         }
         val m = context.resources.displayMetrics
-        measure(
+        w.measure(
             View.MeasureSpec.makeMeasureSpec(m.widthPixels, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(m.heightPixels, View.MeasureSpec.EXACTLY),
         )
-        layout(0, 0, m.widthPixels, m.heightPixels)
-    }.also { webView = it }
-
-    /** Hands the WebView to [parent] so the user sees it; the tools keep driving the same instance. */
-    fun attach(context: Context, parent: ViewGroup) {
-        val w = web(context)
-        if (w.parent === parent) return
-        (w.parent as? ViewGroup)?.removeView(w)
-        parent.removeAllViews()
-        parent.addView(w, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-    }
-
-    /** Takes the WebView back out of the UI; the page stays alive for the tools. */
-    fun detach() {
-        val w = webView ?: return
-        (w.parent as? ViewGroup)?.removeView(w)
-    }
-
-    /** Back to the blank start page with the quick links, without loading anything over the network. */
-    fun goHome() {
-        webView?.stopLoading()
-        runCatching { webView?.loadUrl("about:blank") }
-        BrowserSession.home = true
-        BrowserSession.address = ""
-        BrowserSession.pageTitle = ""
-        BrowserSession.canBack = false
-        BrowserSession.canForward = false
-    }
-
-    fun back() { webView?.goBack() }
-
-    fun forward() { webView?.goForward() }
-
-    fun reload() { webView?.reload() }
-
-    fun stop() { webView?.stopLoading() }
-
-    fun url(): String = webView?.url ?: address
-
-    /** Turns the desktop site on or off for the next load. */
-    fun setDesktop(context: Context, on: Boolean) {
-        if (desktop == on) return
-        desktop = on
-        val w = web(context)
-        val base = w.settings.userAgentString.removePrefix(DESKTOP_UA).replace("; wv", "")
-        w.settings.userAgentString = if (on) DESKTOP_UA else if (base.isBlank()) DESKTOP_UA else base
-        w.reload()
-    }
-
-    /** A user-typed address, made loadable: a bare host becomes https, anything else a search. */
-    fun normalize(text: String): String {
-        val s = text.trim()
-        if (s.isEmpty()) return "about:blank"
-        if (s.startsWith("http://") || s.startsWith("https://") || s.startsWith("file:") || s.startsWith("about:")) return s
-        if (!s.contains(' ') && s.contains('.')) return "https://$s"
-        return "https://www.bing.com/search?q=" + java.net.URLEncoder.encode(s, "UTF-8")
+        w.layout(0, 0, m.widthPixels, m.heightPixels)
+        views[t.key] = w
+        return w
     }
 }
