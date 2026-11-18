@@ -218,6 +218,10 @@ jobs:
           node patch_fix18.js
           node patch_fix19.js
           node patch_fix20.js
+          cp copy_page.kt app/src/main/java/io/github/jackwener/dsh/feature/conversation/CopyPage.kt
+          node patch_fix63.js
+          node patch_fix64.js
+          node patch_fix65.js
           node patch_fix62.js
           grep -n "val gap = dp" app/src/main/java/io/github/jackwener/dsh/service/FloatingBallService.kt
           grep -c "tableComponent" app/src/main/java/io/github/jackwener/dsh/core/designsystem/Content.kt
@@ -230,6 +234,10 @@ jobs:
           grep -c "lastPaneHeight" app/src/main/java/io/github/jackwener/dsh/feature/conversation/Stream.kt
           test ! -d app/src/main/res/values-ru
           grep -c locale app/src/main/res/xml/locales_config.xml
+          grep -c copyTurns app/src/main/java/io/github/jackwener/dsh/feature/conversation/Composer.kt
+          grep -c SPLASH_MIN_MS app/src/main/java/io/github/jackwener/dsh/MainActivity.kt
+          grep -c codeCopyHit app/src/main/java/io/github/jackwener/dsh/core/designsystem/Content.kt
+          grep -c copy_page_title app/src/main/res/values/strings.xml
 
       - name: 检查更新指向自己的仓库 + 版本号
         if: ${{ inputs.app_id != '' }}
