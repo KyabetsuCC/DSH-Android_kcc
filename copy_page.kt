@@ -19,6 +19,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -30,8 +31,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import io.github.jackwener.dsh.R
-import io.github.jackwener.dsh.core.designsystem.BtnVariant
-import io.github.jackwener.dsh.core.designsystem.DButton
 import io.github.jackwener.dsh.core.designsystem.Dsh
 import io.github.jackwener.dsh.core.designsystem.DshType
 import io.github.jackwener.dsh.core.designsystem.IconBtn
@@ -47,30 +46,40 @@ private fun codeBlocksOf(text: String): List<String> =
     FENCE.findAll(text).map { it.groupValues[1].trimEnd('\n') }.filter { it.isNotBlank() }.toList()
 
 /**
- * 复制页：本会话里所有回复的纯文本（含代码块），全屏一页，逐条复制或一键全选复制。
- * 长按文字可以只选一段（SelectionContainer），不用去点气泡里那个小复制键。
+ * 复制页：本会话所有回复的正文（或只看代码块），全屏一页，逐条复制；长按文字可只选一段。
+ * 默认最新在前（多半是要刚发出来的内容），顶部可以切成按时间正序。
  */
 @Composable
 fun CopyPage(turns: List<Turn>, onClose: () -> Unit) {
     val c = Dsh.colors
     val context = LocalContext.current
     var tab by remember { mutableIntStateOf(0) }
+    var newestFirst by remember { mutableStateOf(true) }
     val entries = remember(turns) {
         turns.mapNotNull { t -> t.reply?.text?.takeIf { it.isNotBlank() }?.let { (t.number ?: 0) to it } }
     }
     val codes = remember(entries) { entries.flatMap { (n, text) -> codeBlocksOf(text).map { n to it } } }
-    val shown = if (tab == 0) entries else codes
-    val all = shown.joinToString("\n\n") { it.second }
+    val shown = remember(tab, newestFirst, entries, codes) {
+        val base = if (tab == 0) entries else codes
+        if (newestFirst) base.asReversed() else base
+    }
 
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Column(Modifier.fillMaxSize().background(c.bgBase).statusBarsPadding().navigationBarsPadding().padding(horizontal = 12.dp)) {
             Row(Modifier.fillMaxWidth().height(56.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.copy_page_title), Modifier.weight(1f), style = DshType.s14m, color = c.labelPrimary)
+                Text(stringResource(R.string.copy_page_title), style = DshType.s14m, color = c.labelPrimary)
+                Spacer(Modifier.weight(1f))
                 Segmented(
                     listOf(stringResource(R.string.copy_page_all), stringResource(R.string.copy_page_code)),
                     tab, { tab = it }, compact = true,
                 )
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(4.dp))
+                IconBtn(
+                    R.drawable.dsw_chevrons_up_down_outline, { newestFirst = !newestFirst },
+                    size = 36.dp, iconSize = 16.dp,
+                    tint = if (newestFirst) c.labelPrimary else c.labelTertiary,
+                    contentDescription = stringResource(if (newestFirst) R.string.copy_page_newest else R.string.copy_page_oldest),
+                )
                 IconBtn(R.drawable.ic_close, onClose, size = 36.dp, iconSize = 16.dp, tint = c.labelSecondary, contentDescription = stringResource(R.string.close))
             }
             if (shown.isEmpty()) {
@@ -99,14 +108,9 @@ fun CopyPage(turns: List<Turn>, onClose: () -> Unit) {
                             SelectionContainer { Text(text, style = DshType.mono12, color = c.labelPrimary) }
                         }
                     }
+                    Spacer(Modifier.height(12.dp))
                 }
             }
-            Spacer(Modifier.height(10.dp))
-            DButton(
-                stringResource(R.string.copy_page_copy_all), { copyText(context, all) },
-                Modifier.fillMaxWidth(), variant = BtnVariant.Primary, enabled = shown.isNotEmpty(),
-            )
-            Spacer(Modifier.height(12.dp))
         }
     }
 }
