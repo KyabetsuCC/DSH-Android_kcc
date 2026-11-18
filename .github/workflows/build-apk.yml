@@ -155,7 +155,7 @@ jobs:
           cp image_viewer.kt app/src/main/java/io/github/jackwener/dsh/feature/conversation/ImageViewer.kt
           node patch_fix17.js
           cp terminal.kt app/src/main/java/io/github/jackwener/dsh/feature/settings/TerminalPage.kt
-          cp ic_term.xml ic_copy.xml ic_plus.xml ic_close.xml ic_enter_outline.xml ic_folder.xml ic_folder_plus.xml ic_note.xml app/src/main/res/drawable/
+          cp ic_term.xml ic_copy.xml ic_plus.xml ic_close.xml ic_enter_outline.xml ic_folder.xml ic_folder_plus.xml ic_note.xml ic_home.xml app/src/main/res/drawable/
           node patch_fix22.js
           cp backup_page.kt app/src/main/java/io/github/jackwener/dsh/feature/settings/BackupPage.kt
           cp folders.kt app/src/main/java/io/github/jackwener/dsh/feature/conversation/FolderStore.kt
@@ -228,6 +228,7 @@ jobs:
           cp browser_page.kt app/src/main/java/io/github/jackwener/dsh/feature/browser/BrowserPage.kt
           node patch_fix67.js
           node patch_fix68.js
+          node patch_fix69.js
           node patch_fix62.js
           grep -n "val gap = dp" app/src/main/java/io/github/jackwener/dsh/service/FloatingBallService.kt
           grep -c "tableComponent" app/src/main/java/io/github/jackwener/dsh/core/designsystem/Content.kt
@@ -249,6 +250,8 @@ jobs:
           grep -c browser_title app/src/main/res/values/strings.xml
           grep -c browser-globe-always app/src/main/java/io/github/jackwener/dsh/feature/conversation/HomeScreen.kt
           grep -c browser_home_hint app/src/main/res/values/strings.xml
+          grep -c ic_home app/src/main/java/io/github/jackwener/dsh/feature/browser/BrowserPage.kt
+          test -f app/src/main/res/drawable/ic_home.xml
           grep -c copy_page_title app/src/main/res/values/strings.xml
 
       - name: 检查更新指向自己的仓库 + 版本号
