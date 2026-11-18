@@ -50,6 +50,7 @@ import io.github.jackwener.dsh.core.designsystem.BtnVariant
 import io.github.jackwener.dsh.core.designsystem.DButton
 import io.github.jackwener.dsh.core.designsystem.DDialog
 import io.github.jackwener.dsh.core.designsystem.DInput
+import io.github.jackwener.dsh.core.designsystem.DMenu
 import io.github.jackwener.dsh.core.designsystem.Dsh
 import io.github.jackwener.dsh.core.designsystem.DshType
 import io.github.jackwener.dsh.core.designsystem.IconBtn
@@ -77,6 +78,7 @@ fun BrowserPage(onClose: () -> Unit) {
     val desktop = BrowserSession.desktop
     var typing by remember { mutableStateOf<TextFieldValue?>(null) }
     var tabsOpen by remember { mutableStateOf(false) }
+    var menuOpen by remember { mutableStateOf(false) }
     var adding by remember { mutableStateOf(false) }
     var removing by remember { mutableStateOf<Bookmark?>(null) }
     var newLabel by remember { mutableStateOf("") }
@@ -208,12 +210,27 @@ fun BrowserPage(onClose: () -> Unit) {
                         )
                     }
                 }
-                IconBtn(
-                    R.drawable.dsw_globe_outline, { BrowserSession.setDesktop(context, !desktop) },
-                    size = 36.dp, iconSize = 17.dp,
-                    tint = if (desktop) Dsh.colors.brandPrimary else Dsh.colors.labelTertiary,
-                    contentDescription = stringResource(R.string.browser_desktop),
-                )
+                Box {
+                    IconBtn(
+                        R.drawable.dsw_globe_outline, { menuOpen = true },
+                        size = 36.dp, iconSize = 17.dp,
+                        tint = if (desktop) Dsh.colors.brandPrimary else Dsh.colors.labelTertiary,
+                        contentDescription = stringResource(R.string.browser_menu),
+                    )
+                    DMenu(menuOpen, { menuOpen = false }, focusable = false) {
+                        MenuRow(
+                            stringResource(R.string.browser_desktop),
+                            if (desktop) stringResource(R.string.browser_on) else stringResource(R.string.browser_off),
+                        ) {
+                            BrowserSession.setDesktop(context, !desktop)
+                            menuOpen = false
+                        }
+                        MenuRow(stringResource(R.string.browser_reload), "") {
+                            BrowserSession.reload()
+                            menuOpen = false
+                        }
+                    }
+                }
             }
         }
     }
@@ -362,6 +379,19 @@ private fun HomeSurface(
             style = DshType.xxs12,
             color = Dsh.colors.labelDimmed,
         )
+    }
+}
+
+@Composable
+private fun MenuRow(label: String, value: String, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clip(Radius.sm)
+            .pressable(onClick, Radius.sm)
+            .padding(horizontal = 14.dp, vertical = 11.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, Modifier.weight(1f), style = DshType.s14, color = Dsh.colors.labelPrimary, maxLines = 1)
+        if (value.isNotEmpty()) Text(value, style = DshType.xxs12, color = Dsh.colors.labelTertiary)
     }
 }
 
