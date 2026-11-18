@@ -158,7 +158,7 @@ private fun ModelsTab(all: List<UsageModelEntity>) {
         }
     }
     val agg = remember(rows) {
-        rows.groupBy { it.model.substringAfterLast('/').lowercase().let { k -> if (k.isBlank() || k == "auto") OTHER_ROW else k } }.map { (name, list) ->
+        rows.groupBy { it.model.substringAfterLast('/').lowercase().replace(Regex("-[0-9]{4,8}$"), "").let { k -> if (k.isBlank() || k == "auto") OTHER_ROW else k } }.map { (name, list) ->
             var input = 0L
             var cached = 0L
             var output = 0L
