@@ -27,7 +27,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -82,6 +87,9 @@ fun SessionSearchOverlay(turns: List<Turn>, onClose: () -> Unit, onPick: (Int) -
             Spacer(Modifier.height(6.dp))
             DInput(q, { q = it }, placeholder = stringResource(R.string.search_in_session), modifier = Modifier.fillMaxWidth())
             Spacer(Modifier.height(8.dp))
+            if (q.isNotBlank() && hits.isNotEmpty()) {
+                Text(stringResource(R.string.search_hits, hits.size), Modifier.padding(start = 8.dp, bottom = 4.dp), style = DshType.tiny10, color = c.labelTertiary)
+            }
             if (q.isNotBlank() && hits.isEmpty()) {
                 Text(stringResource(R.string.search_no_hit), Modifier.padding(8.dp), style = DshType.xs13, color = c.labelTertiary)
             }
@@ -95,11 +103,28 @@ fun SessionSearchOverlay(turns: List<Turn>, onClose: () -> Unit, onPick: (Int) -
                         Box(Modifier.clip(CircleShape).background(c.bgLayer2).padding(horizontal = 6.dp, vertical = 2.dp)) {
                             DIcon(if (h.who == "you") R.drawable.dsw_new_chat_outline else R.drawable.dsw_inspect_outline, size = 10.dp, tint = c.labelSecondary)
                         }
-                        Text(h.text.trim().replace('\n', ' '), Modifier.weight(1f), style = DshType.xs13, color = c.labelSecondary,
+                        Text(highlighted(h.text.trim().replace('\n', ' '), q.trim(), c.business), Modifier.weight(1f), style = DshType.xs13, color = c.labelSecondary,
                             maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }
+        }
+    }
+}
+
+/** 把命中片段染色，方便在结果里一眼看到。 */
+private fun highlighted(text: String, needle: String, mark: androidx.compose.ui.graphics.Color): AnnotatedString {
+    if (needle.isEmpty()) return AnnotatedString(text)
+    return buildAnnotatedString {
+        var from = 0
+        while (true) {
+            val at = text.indexOf(needle, from, ignoreCase = true)
+            if (at < 0) { append(text.substring(from)); break }
+            append(text.substring(from, at))
+            withStyle(SpanStyle(background = mark.copy(alpha = 0.35f), color = androidx.compose.ui.graphics.Color.Unspecified, fontWeight = FontWeight(600))) {
+                append(text.substring(at, at + needle.length))
+            }
+            from = at + needle.length
         }
     }
 }
