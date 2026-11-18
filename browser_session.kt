@@ -31,6 +31,9 @@ object BrowserSession {
     var canForward by mutableStateOf(false)
     var desktop by mutableStateOf(false)
 
+    /** True while the blank start page (address bar + quick links) is what the user should see. */
+    var home by mutableStateOf(true)
+
     private var webView: WebView? = null
     private var onStarted: () -> Unit = {}
     private var onFinished: () -> Unit = {}
@@ -58,6 +61,7 @@ object BrowserSession {
                 BrowserSession.loading = true
                 BrowserSession.progress = 0
                 BrowserSession.address = url ?: BrowserSession.address
+                if (!url.isNullOrBlank() && url != "about:blank") BrowserSession.home = false
                 runCatching { onStarted() }
             }
 
@@ -101,6 +105,17 @@ object BrowserSession {
     fun detach() {
         val w = webView ?: return
         (w.parent as? ViewGroup)?.removeView(w)
+    }
+
+    /** Back to the blank start page with the quick links, without loading anything over the network. */
+    fun goHome() {
+        webView?.stopLoading()
+        runCatching { webView?.loadUrl("about:blank") }
+        BrowserSession.home = true
+        BrowserSession.address = ""
+        BrowserSession.pageTitle = ""
+        BrowserSession.canBack = false
+        BrowserSession.canForward = false
     }
 
     fun back() { webView?.goBack() }
