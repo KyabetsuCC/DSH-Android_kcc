@@ -181,6 +181,7 @@ jobs:
           node patch_fix50.js
           node patch_fix51.js
           node patch_fix52.js
+          node patch_fix53.js
           grep -c "session/cancel" app/src/main/java/io/github/jackwener/dsh/core/session/SessionStore.kt
           grep -c "usage_range_all" app/src/main/res/values/strings.xml
           grep -c "usage_models" app/src/main/res/values/strings.xml
