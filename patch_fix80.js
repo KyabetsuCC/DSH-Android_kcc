@@ -1,5 +1,6 @@
 const fs = require('fs')
-const P = '/data/user/0/kyabetsu.cc.dsh/cache/tmp/w95/ws/app/src/main/java/io/github/jackwener/dsh/core/capability/tools/BrowserTools.kt'
+const root = process.argv[2] || '.'
+const P = root + '/app/src/main/java/io/github/jackwener/dsh/core/capability/tools/BrowserTools.kt'
 const MARK = 'browser-home-tool'
 let s = fs.readFileSync(P, 'utf8')
 if (s.includes(MARK)) { console.log('SKIP BrowserTools (home tool)'); process.exit(0) }
