@@ -233,6 +233,7 @@ jobs:
           node patch_fix70.js
           node patch_fix71.js
           node patch_fix72.js
+          node patch_fix73.js
           node patch_fix62.js
           grep -n "val gap = dp" app/src/main/java/io/github/jackwener/dsh/service/FloatingBallService.kt
           grep -c "tableComponent" app/src/main/java/io/github/jackwener/dsh/core/designsystem/Content.kt
@@ -259,6 +260,8 @@ jobs:
           grep -c BookmarkStore app/src/main/java/io/github/jackwener/dsh/feature/browser/BrowserPage.kt
           grep -c "browser_tabs" app/src/main/res/values/strings.xml
           grep -c copy_page_title app/src/main/res/values/strings.xml
+          grep -c folder_order app/src/main/res/values/strings.xml
+          grep -c folder-order-dialog app/src/main/java/io/github/jackwener/dsh/feature/conversation/SessionDrawer.kt
 
       - name: 检查更新指向自己的仓库 + 版本号
         if: ${{ inputs.app_id != '' }}
