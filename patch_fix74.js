@@ -69,7 +69,8 @@ edit('/feature/conversation/HomeScreen.kt', (s) => {
   return s
 })
 
-// 3) sidebar: dot to the right of the browser entry's label
+// 3) sidebar: dot to the right of the browser entry label (its own composable, so the three
+//    existing PanelEntry call sites keep their trailing-lambda form and stay valid).
 edit('/feature/conversation/SessionDrawer.kt', (s) => {
   if (s.includes('browser-live-dot')) { console.log('  SKIP SessionDrawer'); return s }
   s = must(s,
@@ -78,11 +79,11 @@ edit('/feature/conversation/SessionDrawer.kt', (s) => {
     'sd livedot import')
   s = must(s,
     '        PanelEntry(R.drawable.dsw_globe_outline, stringResource(R.string.browser_title)) { browserOpen = true }',
-    '        // browser-live-dot: same breathing dot as the conversation bar, so it is visible while the drawer is open.\n        PanelEntry(R.drawable.dsw_globe_outline, stringResource(R.string.browser_title), live = BrowserSession.agentBusy) { browserOpen = true }',
+    '        // browser-live-dot: same breathing dot as the conversation bar, so it is visible while the drawer is open.\n        PanelEntryLive(R.drawable.dsw_globe_outline, stringResource(R.string.browser_title), BrowserSession.agentBusy, { browserOpen = true })',
     'sd entry')
   s = must(s,
     'private fun PanelEntry(@DrawableRes icon: Int, label: String, onClick: () -> Unit) {\n    val c = Dsh.colors\n    Row(Modifier.fillMaxWidth().heightIn(min = 40.dp).pressable(onClick, Radius.md).padding(horizontal = 8.dp, vertical = 7.dp),\n        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {\n        DIcon(icon, size = 16.dp, tint = c.labelSecondary)\n        Text(label, style = DshType.s14, color = c.labelPrimary)\n    }\n}',
-    'private fun PanelEntry(@DrawableRes icon: Int, label: String, live: Boolean = false, onClick: () -> Unit) {\n    val c = Dsh.colors\n    Row(Modifier.fillMaxWidth().heightIn(min = 40.dp).pressable(onClick, Radius.md).padding(horizontal = 8.dp, vertical = 7.dp),\n        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {\n        DIcon(icon, size = 16.dp, tint = c.labelSecondary)\n        Text(label, style = DshType.s14, color = c.labelPrimary)\n        if (live) LiveDot()\n    }\n}',
+    'private fun PanelEntry(@DrawableRes icon: Int, label: String, onClick: () -> Unit) {\n    val c = Dsh.colors\n    Row(Modifier.fillMaxWidth().heightIn(min = 40.dp).pressable(onClick, Radius.md).padding(horizontal = 8.dp, vertical = 7.dp),\n        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {\n        DIcon(icon, size = 16.dp, tint = c.labelSecondary)\n        Text(label, style = DshType.s14, color = c.labelPrimary)\n    }\n}\n\n/** Same row as [PanelEntry] plus the breathing dot that marks an agent browser call. */\n@Composable\nprivate fun PanelEntryLive(@DrawableRes icon: Int, label: String, live: Boolean, onClick: () -> Unit) {\n    val c = Dsh.colors\n    Row(Modifier.fillMaxWidth().heightIn(min = 40.dp).pressable(onClick, Radius.md).padding(horizontal = 8.dp, vertical = 7.dp),\n        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {\n        DIcon(icon, size = 16.dp, tint = c.labelSecondary)\n        Text(label, style = DshType.s14, color = c.labelPrimary)\n        if (live) LiveDot()\n    }\n}',
     'sd panelentry')
   if (!s.includes('import io.github.jackwener.dsh.core.capability.BrowserSession')) {
     s = must(s,
