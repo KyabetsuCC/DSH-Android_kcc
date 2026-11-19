@@ -190,6 +190,7 @@ private fun importZip(ctx: Context, uri: Uri): String {
     }
 
     var restored = 0
+    var dbImporting = false
     ctx.contentResolver.openInputStream(uri)?.use { raw ->
         ZipInputStream(raw).use { zis ->
             while (true) {
@@ -202,7 +203,7 @@ private fun importZip(ctx: Context, uri: Uri): String {
                     name == "files/ext-list-cache.json" -> File(ctx.filesDir, "ext-list-cache.json")
                     name == "files/datastore/settings.preferences_pb" -> File(ctx.filesDir, "datastore/settings.preferences_pb")
                     name.startsWith("shared_prefs/") -> File(ctx.dataDir, name)
-                    name == "databases/dsh.db" -> db
+                    name == "databases/dsh.db" -> run { dbImporting = true; File(db.path + ".importing") }
                     name == "databases/dsh.db-wal" -> File(db.path + "-wal")
                     name == "databases/dsh.db-shm" -> File(db.path + "-shm")
                     else -> null
@@ -219,7 +220,23 @@ private fun importZip(ctx: Context, uri: Uri): String {
             }
         }
     } ?: throw IllegalStateException(ctx.getString(R.string.backup_err_read))
-    return ctx.getString(R.string.backup_done_import, restored)
+    if (dbImporting) {
+        // 先删掉旧库的 -wal/-shm，再把新库原子改名到位：
+        // 正在运行的那条数据库连接仍指向旧 inode（已被 unlink），写不回来。
+        File(db.path + "-wal").delete()
+        File(db.path + "-shm").delete()
+        val fresh = File(db.path + ".importing")
+        if (fresh.exists() && !fresh.renameTo(db)) {
+            fresh.copyTo(db, overwrite = true)
+            fresh.delete()
+        }
+        // 让界面先显示结果，随后重启进程，让数据库连接重新指向新库
+        Thread {
+            runCatching { Thread.sleep(2200) }
+            android.os.Process.killProcess(android.os.Process.myPid())
+        }.start()
+    }
+    return ctx.getString(R.string.backup_done_import, restored) + if (dbImporting) "\n" + ctx.getString(R.string.backup_need_restart) else ""
 }
 
 /** 遍历 dsh-home，跳过体积大且可重建的目录。 */
