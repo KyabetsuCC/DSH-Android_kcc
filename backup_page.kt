@@ -49,7 +49,7 @@ import java.util.zip.ZipOutputStream
  * 备份 / 导入：把能搬走的数据打成一个 zip，或从一个 zip 恢复。
  *
  * 打包范围：files/dsh-home（去掉 node_modules / cache / ext-staging）、databases/dsh.db(+wal,shm)、
- * shared_prefs、files/datastore、app_notes.json、ext-list-cache.json。
+ * shared_prefs、files/datastore、files/notes（速记 + 浏览器收藏）、app_notes.json、ext-list-cache.json。
  * 不打包：no_backup/（API Key 由 Android Keystore 加密，换机必失效）、files/engine、files/home、
  * shots、certs —— 这些要么可重建，要么根本搬不走。
  */
@@ -163,6 +163,8 @@ private fun exportZip(ctx: Context, uri: Uri): String {
         add(File(ctx.filesDir, "app_notes.json"), "files/app_notes.json")
         add(File(ctx.filesDir, "ext-list-cache.json"), "files/ext-list-cache.json")
         walkData(File(ctx.filesDir, "dsh-home"), "files/dsh-home") { f, name -> add(f, name) }
+        // notes-export: 速记 snippets.json 与浏览器首页收藏 bookmarks.json 都在 files/notes 下。
+        walkData(File(ctx.filesDir, "notes"), "files/notes") { f, name -> add(f, name) }
         add(File(ctx.filesDir, "datastore/settings.preferences_pb"), "files/datastore/settings.preferences_pb")
         walkData(File(ctx.dataDir, "shared_prefs"), "shared_prefs") { f, name -> add(f, name) }
         val db = ctx.getDatabasePath("dsh.db")
@@ -199,6 +201,7 @@ private fun importZip(ctx: Context, uri: Uri): String {
                 if (e.isDirectory) { zis.closeEntry(); continue }
                 val target: File? = when {
                     name.startsWith("files/dsh-home/") -> File(ctx.filesDir, name.removePrefix("files/"))
+                    name.startsWith("files/notes/") -> File(ctx.filesDir, name.removePrefix("files/"))
                     name == "files/app_notes.json" -> File(ctx.filesDir, "app_notes.json")
                     name == "files/ext-list-cache.json" -> File(ctx.filesDir, "ext-list-cache.json")
                     name == "files/datastore/settings.preferences_pb" -> File(ctx.filesDir, "datastore/settings.preferences_pb")
