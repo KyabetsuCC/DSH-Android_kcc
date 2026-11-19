@@ -97,10 +97,7 @@ edit('/feature/conversation/SessionDrawer.kt', (s) => {
 // 4) browser page: the pill in the middle of the bottom bar
 edit('/feature/browser/BrowserPage.kt', (s) => {
   if (s.includes('browser-agent-pill')) { console.log('  SKIP BrowserPage'); return s }
-  s = must(s,
-    'import androidx.compose.foundation.verticalScroll',
-    'import androidx.compose.foundation.verticalScroll\nimport kotlinx.coroutines.delay',
-    'bp delay import')
+
   s = must(s,
     'import io.github.jackwener.dsh.core.designsystem.IconBtn',
     'import io.github.jackwener.dsh.core.designsystem.IconBtn\nimport io.github.jackwener.dsh.core.designsystem.LiveDot',
@@ -120,12 +117,6 @@ edit('/feature/browser/BrowserPage.kt', (s) => {
       '    val steps = BrowserSession.agentSteps',
       '    val done = BrowserSession.agentFinished',
       '    if (!busy && done <= 0) return',
-      '    LaunchedEffect(busy, done) {',
-      '        if (!busy && done > 0) {',
-      '            delay(2_600)',
-      '            BrowserSession.agentReceiptDone()',
-      '        }',
-      '    }',
       '    Row(',
       '        Modifier.clip(Radius.xl)',
       '            .background(if (busy) c.business.copy(alpha = 0.16f) else c.success.copy(alpha = 0.16f))',
@@ -146,6 +137,21 @@ edit('/feature/browser/BrowserPage.kt', (s) => {
       '@Composable',
       'fun BrowserPage(onClose: () -> Unit) {',
     ].join('\n'), 'bp pill')
+  return s
+})
+
+
+// 4b) the turn is over: session.status idle ends the whole browser burst, not each single call
+edit('/core/session/SessionStore.kt', (s) => {
+  if (s.includes('browser-live-dot-turn')) { console.log('  SKIP SessionStore'); return s }
+  s = must(s,
+    'import io.github.jackwener.dsh.core.capability.CapabilityHub',
+    'import io.github.jackwener.dsh.core.capability.BrowserSession\nimport io.github.jackwener.dsh.core.capability.CapabilityHub',
+    'ss browser import')
+  s = must(s,
+    '                if (!running) onTurnFinished(sessionId)',
+    '                // browser-live-dot-turn: the dot marks the whole turn that drives the browser.\n                if (!running) BrowserSession.agentTurnEnd()\n                if (!running) onTurnFinished(sessionId)',
+    'ss turn end')
   return s
 })
 
