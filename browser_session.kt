@@ -62,50 +62,75 @@ object BrowserSession {
         onFinished = finished
     }
 
-    /** True while an agent browser call is running: the breathing dot and the in-page banner read this. */
+    /** True from the first browser call of a turn until that turn ends: the dot and the banner read this. */
     var agentBusy by mutableStateOf(false)
         private set
 
-    /** The running browser tool, e.g. "browser_click"; empty when idle. */
+    /** The running browser tool, e.g. "browser_click"; empty while the agent thinks between calls. */
     var agentLabel by mutableStateOf("")
         private set
 
-    /** Steps in the current burst (a burst ends after [BURST_GAP_MS] of silence). */
+    /** Browser steps the agent took during the current turn. */
     var agentSteps by mutableIntStateOf(0)
         private set
 
-    /** Steps of the burst that just ended, shown as a receipt until the page clears it. */
+    /** Steps of the turn that just ended, shown as a receipt until the page clears it. */
     var agentFinished by mutableIntStateOf(0)
         private set
 
-    private var burstSteps = 0
-    private var burstEndedAt = 0L
+    private var turnSteps = 0
+    private var lastCallAt = 0L
+    private val watchdog = android.os.Handler(android.os.Looper.getMainLooper())
+    private val watchdogTask = Runnable {
+        if (agentBusy && System.currentTimeMillis() - lastCallAt >= WATCHDOG_MS) agentTurnEnd()
+    }
+    private val receiptTask = Runnable { if (!agentBusy) agentReceiptDone() }
 
-    /** An agent browser tool started: mark the burst and count the step. */
+    /** An agent browser tool started: the dot lights up on the turn's first call and stays lit after it. */
     fun agentBegin(label: String) {
-        val now = System.currentTimeMillis()
-        if (now - burstEndedAt > BURST_GAP_MS) burstSteps = 0
-        burstSteps += 1
-        agentSteps = burstSteps
+        if (!agentBusy) {
+            turnSteps = 0
+            agentFinished = 0
+        }
+        turnSteps += 1
+        agentSteps = turnSteps
         agentLabel = label
         agentBusy = true
+        lastCallAt = System.currentTimeMillis()
+        watchdog.removeCallbacks(watchdogTask)
+        watchdog.removeCallbacks(receiptTask)
     }
 
-    /** The call finished: the dot goes out, the receipt keeps the step count. */
+    /** The call finished: the dot stays lit, the same turn may call more browser tools. */
     fun agentEnd() {
+        agentLabel = ""
+        lastCallAt = System.currentTimeMillis()
+        watchdog.removeCallbacks(watchdogTask)
+        watchdog.postDelayed(watchdogTask, WATCHDOG_MS)
+    }
+
+    /** The turn is over: the dot goes out and the receipt keeps the step count for a moment. */
+    fun agentTurnEnd() {
+        watchdog.removeCallbacks(watchdogTask)
+        if (!agentBusy) return
         agentBusy = false
         agentLabel = ""
-        agentFinished = burstSteps
-        burstEndedAt = System.currentTimeMillis()
+        agentFinished = turnSteps
+        watchdog.removeCallbacks(receiptTask)
+        watchdog.postDelayed(receiptTask, RECEIPT_MS)
     }
 
-    /** The page showed the receipt for long enough: drop it. */
+    /** The receipt was shown for long enough: drop it. */
     fun agentReceiptDone() {
+        watchdog.removeCallbacks(receiptTask)
         agentFinished = 0
-        burstSteps = 0
+        turnSteps = 0
     }
 
-    private const val BURST_GAP_MS = 4_000L
+    /** Safety net when no turn-end event arrives (engine killed, crash): the dot must not stay on forever. */
+    private const val WATCHDOG_MS = 600_000L
+
+    private const val RECEIPT_MS = 6_000L
 
     /** Opens a tab (and makes it the active one). [url] null shows the start page. */
     fun newTab(context: Context, url: String? = null): BrowserTab {
