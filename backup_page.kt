@@ -220,6 +220,10 @@ private fun importZip(ctx: Context, uri: Uri): String {
             }
         }
     } ?: throw IllegalStateException(ctx.getString(R.string.backup_err_read))
+    // sessions-drop: 引擎的会话仓库按 cwd 命名，且带 generation 记录；跨包名/跨设备导入后
+    // 会撞上旧的 generation（session "..." already exists）导致引擎起不来。历史消息都在
+    // dsh.db 里，这里整个丢弃仓库，引擎按当前路径重新建立即可。
+    File(ctx.filesDir, "dsh-home/sessions").deleteRecursively()
     fixSessionDirs(ctx)
 
     if (dbImporting) {
