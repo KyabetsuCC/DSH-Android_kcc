@@ -234,6 +234,7 @@ jobs:
           node patch_fix71.js
           node patch_fix72.js
           node patch_fix73.js
+          node patch_fix74.js
           node patch_fix62.js
           grep -n "val gap = dp" app/src/main/java/io/github/jackwener/dsh/service/FloatingBallService.kt
           grep -c "tableComponent" app/src/main/java/io/github/jackwener/dsh/core/designsystem/Content.kt
@@ -259,6 +260,9 @@ jobs:
           test -f app/src/main/res/drawable/ic_home.xml
           grep -c BookmarkStore app/src/main/java/io/github/jackwener/dsh/feature/browser/BrowserPage.kt
           grep -c "browser_tabs" app/src/main/res/values/strings.xml
+          grep -c "browser_agent_busy" app/src/main/res/values/strings.xml
+          grep -c "fun LiveDot" app/src/main/java/io/github/jackwener/dsh/core/designsystem/Primitives.kt
+          grep -c "browser-live-dot" app/src/main/java/io/github/jackwener/dsh/core/capability/CapabilityHub.kt
           grep -c copy_page_title app/src/main/res/values/strings.xml
           grep -c folder_order app/src/main/res/values/strings.xml
           grep -c folder-order-dialog app/src/main/java/io/github/jackwener/dsh/feature/conversation/SessionDrawer.kt
