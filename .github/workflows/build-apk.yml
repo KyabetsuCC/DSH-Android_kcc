@@ -238,6 +238,7 @@ jobs:
           node patch_fix75.js
           node patch_fix76.js
           node patch_fix77.js
+          node patch_fix78.js
           node patch_fix62.js
           grep -n "val gap = dp" app/src/main/java/io/github/jackwener/dsh/service/FloatingBallService.kt
           grep -c "tableComponent" app/src/main/java/io/github/jackwener/dsh/core/designsystem/Content.kt
@@ -269,6 +270,7 @@ jobs:
           grep -c "browser-speed" app/src/main/java/io/github/jackwener/dsh/core/capability/tools/BrowserTools.kt
           grep -c "browser-stable-ref" app/src/main/java/io/github/jackwener/dsh/core/capability/tools/BrowserTools.kt
           grep -c "bookmark-reorder" app/src/main/java/io/github/jackwener/dsh/feature/browser/BrowserPage.kt
+          grep -c "browser-ergonomics" app/src/main/java/io/github/jackwener/dsh/feature/browser/BrowserPage.kt
           grep -c "browser-live-dot-turn" app/src/main/java/io/github/jackwener/dsh/core/session/SessionStore.kt
           grep -c "notes-export" app/src/main/java/io/github/jackwener/dsh/feature/settings/BackupPage.kt
           grep -c copy_page_title app/src/main/res/values/strings.xml
