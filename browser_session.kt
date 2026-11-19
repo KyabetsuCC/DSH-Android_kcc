@@ -62,6 +62,51 @@ object BrowserSession {
         onFinished = finished
     }
 
+    /** True while an agent browser call is running: the breathing dot and the in-page banner read this. */
+    var agentBusy by mutableStateOf(false)
+        private set
+
+    /** The running browser tool, e.g. "browser_click"; empty when idle. */
+    var agentLabel by mutableStateOf("")
+        private set
+
+    /** Steps in the current burst (a burst ends after [BURST_GAP_MS] of silence). */
+    var agentSteps by mutableIntStateOf(0)
+        private set
+
+    /** Steps of the burst that just ended, shown as a receipt until the page clears it. */
+    var agentFinished by mutableIntStateOf(0)
+        private set
+
+    private var burstSteps = 0
+    private var burstEndedAt = 0L
+
+    /** An agent browser tool started: mark the burst and count the step. */
+    fun agentBegin(label: String) {
+        val now = System.currentTimeMillis()
+        if (now - burstEndedAt > BURST_GAP_MS) burstSteps = 0
+        burstSteps += 1
+        agentSteps = burstSteps
+        agentLabel = label
+        agentBusy = true
+    }
+
+    /** The call finished: the dot goes out, the receipt keeps the step count. */
+    fun agentEnd() {
+        agentBusy = false
+        agentLabel = ""
+        agentFinished = burstSteps
+        burstEndedAt = System.currentTimeMillis()
+    }
+
+    /** The page showed the receipt for long enough: drop it. */
+    fun agentReceiptDone() {
+        agentFinished = 0
+        burstSteps = 0
+    }
+
+    private const val BURST_GAP_MS = 4_000L
+
     /** Opens a tab (and makes it the active one). [url] null shows the start page. */
     fun newTab(context: Context, url: String? = null): BrowserTab {
         val t = BrowserTab(++seq)
