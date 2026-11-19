@@ -241,6 +241,7 @@ jobs:
           node patch_fix78.js
           node patch_fix79.js
           node patch_fix80.js
+          node patch_fix81.js
           node patch_fix62.js
           grep -n "val gap = dp" app/src/main/java/io/github/jackwener/dsh/service/FloatingBallService.kt
           grep -c "tableComponent" app/src/main/java/io/github/jackwener/dsh/core/designsystem/Content.kt
@@ -281,6 +282,9 @@ jobs:
           grep -c copy_page_title app/src/main/res/values/strings.xml
           grep -c folder_order app/src/main/res/values/strings.xml
           grep -c folder-order-dialog app/src/main/java/io/github/jackwener/dsh/feature/conversation/SessionDrawer.kt
+          grep -c "browser-dark" app/src/main/java/io/github/jackwener/dsh/core/capability/BrowserSession.kt
+          grep -c "Theme.Dsh.WebDark" app/src/main/res/values/themes.xml
+          grep -c "BrowserSession.setDark" app/src/main/java/io/github/jackwener/dsh/MainActivity.kt
 
       - name: 检查更新指向自己的仓库 + 版本号
         if: ${{ inputs.app_id != '' }}
