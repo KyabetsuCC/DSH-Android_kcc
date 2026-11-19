@@ -220,6 +220,8 @@ private fun importZip(ctx: Context, uri: Uri): String {
             }
         }
     } ?: throw IllegalStateException(ctx.getString(R.string.backup_err_read))
+    fixSessionDirs(ctx)
+
     if (dbImporting) {
         // 先删掉旧库的 -wal/-shm，再把新库原子改名到位：
         // 正在运行的那条数据库连接仍指向旧 inode（已被 unlink），写不回来。
@@ -247,5 +249,26 @@ private fun walkData(dir: File, prefix: String, sink: (File, String) -> Unit) {
         if (f.isDirectory && (name == "node_modules" || name == "cache" || name == "ext-staging" || name == ".git")) continue
         val path = "$prefix/$name"
         if (f.isDirectory) walkData(f, path, sink) else sink(f, path)
+    }
+}
+
+/**
+ * 换包名/换机导入后，引擎的会话目录仍按旧 cwd 命名（形如 --data-user-0-<old-id>-files-home--），
+ * 引擎会报 working-directory: directory does not exist。这里统一改成本机的 home 目录名。
+ */
+private fun fixSessionDirs(ctx: Context) {
+    val sessions = File(ctx.filesDir, "dsh-home/sessions")
+    if (!sessions.exists()) return
+    val encoded = "--" + File(ctx.filesDir, "home").path.trim('/').replace('/', '-') + "--"
+    val target = File(sessions, encoded)
+    for (d in sessions.listFiles() ?: return) {
+        if (!d.isDirectory || d.name == encoded) continue
+        if (!d.name.endsWith("-files-home--")) continue
+        if (!target.exists()) {
+            d.renameTo(target)
+        } else {
+            for (f in d.listFiles() ?: emptyArray()) f.renameTo(File(target, f.name))
+            d.deleteRecursively()
+        }
     }
 }
