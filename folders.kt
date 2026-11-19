@@ -15,12 +15,49 @@ object FolderStore {
     private const val PREF = "session_folders"
     private const val KEY_FOLDERS = "folders"
     private const val KEY_MAP = "map"
+    private const val KEY_ORDER = "order"
 
     /** 变更计数：Compose 读它即可在增删改后重组。 */
     var version by mutableIntStateOf(0)
         private set
 
     private fun prefs(c: Context) = c.applicationContext.getSharedPreferences(PREF, Context.MODE_PRIVATE)
+
+    /** 用户自定义的文件夹顺序（存 id 列表）；没有记录过的文件夹排在后面。 */
+    private fun order(c: Context): List<String> {
+        val raw = prefs(c).getString(KEY_ORDER, null) ?: return emptyList()
+        return runCatching {
+            val a = JSONArray(raw)
+            (0 until a.length()).mapNotNull { i -> a.optString(i).takeIf { it.isNotBlank() } }
+        }.getOrDefault(emptyList())
+    }
+
+    private fun saveOrder(c: Context, ids: List<String>) {
+        val a = JSONArray()
+        ids.forEach { a.put(it) }
+        prefs(c).edit().putString(KEY_ORDER, a.toString()).apply()
+        version++
+    }
+
+    /** 按用户顺序排列（未记录顺序的排在末尾，保持原有相对次序）。 */
+    fun ordered(c: Context): List<SessionFolder> {
+        val list = folders(c)
+        val ord = order(c)
+        if (ord.isEmpty()) return list
+        val pos = ord.withIndex().associate { it.value to it.index }
+        return list.sortedBy { pos[it.id] ?: (ord.size + list.indexOf(it)) }
+    }
+
+    /** 把一个文件夹上移（delta = -1）或下移（delta = +1）。 */
+    fun moveFolder(c: Context, id: String, delta: Int) {
+        val ids = ordered(c).map { it.id }.toMutableList()
+        val from = ids.indexOf(id)
+        if (from < 0) return
+        val to = (from + delta).coerceIn(0, ids.lastIndex)
+        if (to == from) return
+        ids.add(to, ids.removeAt(from))
+        saveOrder(c, ids)
+    }
 
     fun folders(c: Context): List<SessionFolder> {
         val raw = prefs(c).getString(KEY_FOLDERS, null) ?: return emptyList()
@@ -44,6 +81,7 @@ object FolderStore {
     fun addFolder(c: Context, name: String): SessionFolder {
         val f = SessionFolder(UUID.randomUUID().toString(), name.trim())
         saveFolders(c, folders(c) + f)
+        saveOrder(c, order(c) + f.id)
         return f
     }
 
@@ -53,6 +91,7 @@ object FolderStore {
     /** 删文件夹时把里面的会话退回「未分组」。 */
     fun deleteFolder(c: Context, id: String) {
         saveFolders(c, folders(c).filterNot { it.id == id })
+        saveOrder(c, order(c).filterNot { it == id })
         val map = assignments(c).filterValues { it != id }
         saveMap(c, map)
     }
